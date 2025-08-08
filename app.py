@@ -18,13 +18,13 @@ authenticator = stauth.Authenticate(
     config['cookie']['key'],
     config['cookie']['expiry_days']
 )
+
 # ------------------- LOGIN -------------------
-authenticator.login("🔐 Iniciar sesión", location="main")
+authenticator.login("🔐 Iniciar sesión")
 
 if st.session_state["authentication_status"] is None:
     st.warning("Por favor ingresa tus credenciales.")
     st.stop()
-
 elif st.session_state["authentication_status"] is False:
     st.error("❌ Usuario o contraseña incorrectos.")
     st.stop()
@@ -72,7 +72,6 @@ def limpiar_valores(d):
 
 def json_to_excel(files, tipo_factura):
     datos = {tipo: [] for tipo in ["usuarios"] + list(set([s.lower() for s in TIPOS_SERVICIOS]))}
-
     for archivo in files:
         data = json.load(archivo)
         num_factura = data.get("numFactura", "SIN_FACTURA")
@@ -109,7 +108,6 @@ def json_to_excel(files, tipo_factura):
 def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
     xlsx = pd.read_excel(archivo_excel, sheet_name=None)
     dataframes = {k.lower(): v for k, v in xlsx.items()}
-
     if "usuarios" not in dataframes:
         st.error("❌ El archivo no contiene una hoja llamada 'usuarios'.")
         return None
@@ -203,7 +201,6 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
         }
 
 # ------------------- INTERFAZ DE USUARIO -------------------
-
 st.title("📄 Transformador RIPS: PGP y EVENTO")
 
 modo = st.radio("Selecciona el tipo de conversión:", [
@@ -241,7 +238,6 @@ elif "Excel ➜ JSON" in modo:
 st.sidebar.title("👤 Usuario")
 st.sidebar.write(f"Bienvenido, {st.session_state['name']}")
 authenticator.logout("🚪 Cerrar sesión", "sidebar")
-
 
 
 
