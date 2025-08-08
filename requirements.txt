@@ -1,6 +1,6 @@
 streamlit
-pandas
-pyyaml
+PyYAML
 streamlit-authenticator
+pandas
 openpyxl
 xlsxwriter
