@@ -7,47 +7,55 @@ import zipfile
 import yaml
 import streamlit_authenticator as stauth
 from yaml.loader import SafeLoader
-# ---------------- GENERADOR DE HASH ----------------
-st.sidebar.title("🔑 Herramientas")
-if st.sidebar.button("Abrir generador de hash"):
-    st.title("🔑 Generador de Hash para Contraseña")
+# ------------------- CARGAR CONFIGURACIÓN -------------------
+with open('config.yaml') as file:
+    config = yaml.load(file, Loader=SafeLoader)
 
-    plain_password = st.text_input("Escribe tu contraseña en texto plano", type="password")
-    if st.button("Generar hash"):
-        if plain_password:
-            hashed_password = stauth.Hasher([plain_password]).generate()[0]
-            st.success("✅ Hash generado con éxito")
-            st.code(hashed_password, language="bash")
-            st.info("Copia este hash y pégalo en tu config.yaml en el campo 'password'.")
-        else:
-            st.error("❌ Ingresa una contraseña antes de generar el hash.")
-
-# ------------------- CARGAR CONFIGURACIÓN DE LOGIN -------------------
-with open("config.yaml") as file:
-    config = yaml.safe_load(file)
-
+# ------------------- AUTENTICACIÓN -------------------
 authenticator = stauth.Authenticate(
-    config['credentials'],
-    config['cookie']['name'],
-    config['cookie']['key'],
-    config['cookie']['expiry_days']
+    credentials=config['credentials'],
+    cookie_name=config['cookie']['name'],
+    key=config['cookie']['key'],
+    expiry_days=config['cookie']['expiry_days']
 )
 
-# ------------------- LOGIN -------------------
-authenticator.login("🔐 Iniciar sesión", location="main")
+# Barra lateral: Generador de hash
+st.sidebar.title("🔑 Herramientas")
+if st.sidebar.button("Abrir generador de hash"):
+    st.session_state["show_hash_gen"] = True
 
-if st.session_state["authentication_status"] is None:
-    st.warning("Por favor ingresa tus credenciales.")
-    st.stop()
+if st.session_state.get("show_hash_gen", False):
+    st.sidebar.subheader("Generar hash de contraseña")
+    new_password = st.sidebar.text_input("Introduce la contraseña", type="password")
+    if st.sidebar.button("Generar hash"):
+        if new_password:
+            hashed = stauth.Hasher().generate([new_password])
+            st.sidebar.code(hashed[0], language="text")
+        else:
+            st.sidebar.warning("Introduce una contraseña primero.")
 
-elif st.session_state["authentication_status"] is False:
+# ------------------- FORMULARIO LOGIN -------------------
+name, authentication_status, username = authenticator.login("Iniciar sesión", "main")
+
+if authentication_status is False:
     st.error("❌ Usuario o contraseña incorrectos.")
     st.stop()
+elif authentication_status is None:
+    st.warning("Por favor ingresa tus credenciales.")
+    st.stop()
+else:
+    st.success(f"Bienvenido {name} 👋")
 
-# ------------------- APP PRINCIPAL -------------------
-
+# ------------------- TU APP PRINCIPAL -------------------
 st.set_page_config(page_title="Transformador RIPS PGP & EVENTO", layout="centered")
 st.title(f"🔄 Bienvenido {st.session_state['name']}")
+
+# Aquí iría todo el resto de tu código para convertir JSON ↔ Excel
+# ----------------------------------------------------------
+
+st.sidebar.title("👤 Usuario")
+st.sidebar.write(f"Bienvenido, {st.session_state['name']}")
+authenticator.logout("🚪 Cerrar sesión", "sidebar")
 
 # ------------------- FUNCIONES -------------------
 TIPOS_SERVICIOS = [
@@ -256,4 +264,5 @@ elif "Excel ➜ JSON" in modo:
 st.sidebar.title("👤 Usuario")
 st.sidebar.write(f"Bienvenido, {st.session_state['name']}")
 authenticator.logout("🚪 Cerrar sesión", "sidebar")
+
 
