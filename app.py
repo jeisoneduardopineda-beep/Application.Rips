@@ -6,45 +6,33 @@ from io import BytesIO
 import zipfile
 import yaml
 import streamlit_authenticator as stauth
-from yaml.loader import SafeLoader
 
 # ------------------- CARGAR CONFIGURACIÓN DE LOGIN -------------------
-with open('config.yaml') as file:
-    config = yaml.load(file, Loader=SafeLoader)
+with open("config.yaml") as file:
+    config = yaml.safe_load(file)
 
-# ------------------- CREAR OBJETO DE AUTENTICACIÓN -------------------
 authenticator = stauth.Authenticate(
-    credentials=config['credentials'],
-    cookie_name=config['cookie']['name'],
-    key=config['cookie']['key'],
-    expiry_days=config['cookie']['expiry_days']
+    config['credentials'],
+    config['cookie']['name'],
+    config['cookie']['key'],
+    config['cookie']['expiry_days']
 )
 
 # ------------------- LOGIN -------------------
-name, authentication_status, username = authenticator.login(
-    form_name="🔐 Iniciar sesión",
-    location="main"
-)
+authenticator.login("🔐 Iniciar sesión", location="main")
 
-# ------------------- VALIDAR ESTADO -------------------
-if authentication_status is False:
+if st.session_state["authentication_status"] is None:
+    st.warning("Por favor ingresa tus credenciales.")
+    st.stop()
+
+elif st.session_state["authentication_status"] is False:
     st.error("❌ Usuario o contraseña incorrectos.")
     st.stop()
-elif authentication_status is None:
-    st.warning("🔐 Por favor ingresa tus credenciales.")
-    st.stop()
-else:
-    st.success(f"✅ Bienvenido {name}")
 
-# ------------------- LOGOUT EN SIDEBAR -------------------
-with st.sidebar:
-    st.title("👤 Usuario")
-    st.write(f"Hola, {name}")
-    authenticator.logout("🚪 Cerrar sesión", "sidebar")
+# ------------------- APP PRINCIPAL -------------------
 
-# ------------------- CONFIGURACIÓN DE PÁGINA -------------------
 st.set_page_config(page_title="Transformador RIPS PGP & EVENTO", layout="centered")
-st.title(f"🔄 Bienvenido {name}")
+st.title(f"🔄 Bienvenido {st.session_state['name']}")
 
 # ------------------- FUNCIONES -------------------
 TIPOS_SERVICIOS = [
@@ -84,6 +72,7 @@ def limpiar_valores(d):
 
 def json_to_excel(files, tipo_factura):
     datos = {tipo: [] for tipo in ["usuarios"] + list(set([s.lower() for s in TIPOS_SERVICIOS]))}
+
     for archivo in files:
         data = json.load(archivo)
         num_factura = data.get("numFactura", "SIN_FACTURA")
@@ -120,6 +109,7 @@ def json_to_excel(files, tipo_factura):
 def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
     xlsx = pd.read_excel(archivo_excel, sheet_name=None)
     dataframes = {k.lower(): v for k, v in xlsx.items()}
+
     if "usuarios" not in dataframes:
         st.error("❌ El archivo no contiene una hoja llamada 'usuarios'.")
         return None
@@ -213,6 +203,7 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
         }
 
 # ------------------- INTERFAZ DE USUARIO -------------------
+
 st.title("📄 Transformador RIPS: PGP y EVENTO")
 
 modo = st.radio("Selecciona el tipo de conversión:", [
@@ -246,8 +237,7 @@ elif "Excel ➜ JSON" in modo:
                 buffer.seek(0)
                 st.download_button("⬇️ Descargar ZIP de JSONs", data=buffer, file_name="RIPS_Evento_JSONs.zip")
 
-
-
-
-
-
+# ------------------- LOGOUT -------------------
+st.sidebar.title("👤 Usuario")
+st.sidebar.write(f"Bienvenido, {st.session_state['name']}")
+authenticator.logout("🚪 Cerrar sesión", "sidebar")
