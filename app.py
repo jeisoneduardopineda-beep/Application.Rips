@@ -12,6 +12,7 @@ from yaml.loader import SafeLoader
 with open('config.yaml') as file:
     config = yaml.load(file, Loader=SafeLoader)
 
+# Crear autenticador (modo actualizado)
 authenticator = stauth.Authenticate(
     credentials=config['credentials'],
     cookie_name=config['cookie']['name'],
@@ -19,28 +20,20 @@ authenticator = stauth.Authenticate(
     expiry_days=config['cookie']['expiry_days']
 )
 
-authenticator.login("🔐 Iniciar sesión", location="main")
+# Mostrar formulario de login
+authenticator.login("🔐 Iniciar sesión", location="main")  # location puede ser: 'main', 'sidebar' o 'unrendered'
 
-if st.session_state["authentication_status"] is None:
+# Verificar estado de sesión
+if "authentication_status" not in st.session_state:
     st.warning("Por favor ingresa tus credenciales.")
     st.stop()
+
 elif st.session_state["authentication_status"] is False:
     st.error("❌ Usuario o contraseña incorrectos.")
     st.stop()
-else:
-    st.success(f"🔓 Bienvenido {st.session_state['name']}")
 
-# ------------------- MANEJO DE ESTADO DE AUTENTICACIÓN -------------------
-if st.session_state["authentication_status"] is None:
-    st.warning("Por favor ingresa tus credenciales.")
-    st.stop()
-elif st.session_state["authentication_status"] is False:
-    st.error("❌ Usuario o contraseña incorrectos.")
-    st.stop()
 elif st.session_state["authentication_status"]:
-
-    st.set_page_config(page_title="Transformador RIPS PGP & EVENTO", layout="centered")
-    st.title(f"🔄 Bienvenido {st.session_state['name']}")
+    st.success(f"🔓 Bienvenido, {st.session_state['name']}")
 
     # ------------------- FUNCIONES -------------------
     TIPOS_SERVICIOS = [
@@ -246,6 +239,7 @@ elif st.session_state["authentication_status"]:
     st.sidebar.title("👤 Usuario")
     st.sidebar.write(f"Bienvenido, {st.session_state['name']}")
     authenticator.logout(button_name="🚪 Cerrar sesión", location="sidebar")
+
 
 
 
