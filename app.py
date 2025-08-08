@@ -7,6 +7,10 @@ import zipfile
 import yaml
 import streamlit_authenticator as stauth
 from yaml.loader import SafeLoader
+
+# ------------------- CONFIGURACIÓN DE LA PÁGINA -------------------
+st.set_page_config(page_title="Transformador RIPS PGP & EVENTO", layout="centered")
+
 # ------------------- CARGAR CONFIGURACIÓN -------------------
 with open('config.yaml') as file:
     config = yaml.load(file, Loader=SafeLoader)
@@ -45,10 +49,6 @@ elif authentication_status is None:
     st.stop()
 else:
     st.success(f"Bienvenido {name} 👋")
-
-# ------------------- TU APP PRINCIPAL -------------------
-st.set_page_config(page_title="Transformador RIPS PGP & EVENTO", layout="centered")
-st.title(f"🔄 Bienvenido {st.session_state['name']}")
 
 # ------------------- FUNCIONES -------------------
 TIPOS_SERVICIOS = [
@@ -219,7 +219,6 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
         }
 
 # ------------------- INTERFAZ DE USUARIO -------------------
-
 st.title("📄 Transformador RIPS: PGP y EVENTO")
 
 modo = st.radio("Selecciona el tipo de conversión:", [
