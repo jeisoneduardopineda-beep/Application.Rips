@@ -20,13 +20,13 @@ authenticator = stauth.Authenticate(
     expiry_days=config['cookie']['expiry_days']
 )
 
-authenticator.login("🔐 Iniciar sesión", location="main")
+name, authentication_status, username = authenticator.login("🔐 Iniciar sesión", location="main")
 
-if "authentication_status" not in st.session_state:
-    st.warning("Por favor ingresa tus credenciales.")
-    st.stop()
-elif st.session_state["authentication_status"] is False:
+if authentication_status is False:
     st.error("❌ Usuario o contraseña incorrectos.")
+    st.stop()
+elif authentication_status is None:
+    st.warning("Por favor ingresa tus credenciales.")
     st.stop()
 
 # ------------------- APP PRINCIPAL -------------------
@@ -238,6 +238,7 @@ elif "Excel ➜ JSON" in modo:
 st.sidebar.title("👤 Usuario")
 st.sidebar.write(f"Bienvenido, {st.session_state['name']}")
 authenticator.logout("🚪 Cerrar sesión", "sidebar")
+
 
 
 
