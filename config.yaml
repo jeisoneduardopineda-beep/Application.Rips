@@ -1,10 +1,10 @@
 credentials:
   usernames:
     admin:
-      name: Jeison Eduardo
-      password: "$2b$12$86fzDlKfTo2ZpJlh9Wkj/uyccNwHcVttrCSWpY1H5E3lfjQJQ8EXy"
+      name: Administrador
+      password: '$2b$12$wO7m7J3aXYhXnU6a4.KRSeTwJtXkLE7/4vPXFYfJeZ9geGhDCIqum'
 
 cookie:
-  name: my_cookie
-  key: some_signature_key
-  expiry_days: 3
+  name: rips_app_cookie
+  key: clave_ultrasecreta_123
+  expiry_days: 30
