@@ -10,24 +10,28 @@ import streamlit_authenticator as stauth
 from yaml.loader import SafeLoader
 
 # ------------------- CARGAR CONFIGURACIÓN DE LOGIN -------------------
+# -------- CARGAR CONFIGURACIÓN DE LOGIN --------
 with open('config.yaml') as file:
     config = yaml.load(file, Loader=SafeLoader)
 
+# -------- CREAR OBJETO DE AUTENTICACIÓN --------
 authenticator = stauth.Authenticate(
     credentials=config['credentials'],
-    cookie_name=config['cookie']['name'],
-    key=config['cookie']['key'],
-    expiry_days=config['cookie']['expiry_days']
+    cookie=config['cookie']
 )
 
+# -------- FORMULARIO DE LOGIN --------
 name, authentication_status, username = authenticator.login("🔐 Iniciar sesión", location="main")
 
+# -------- VALIDAR ESTADO DE AUTENTICACIÓN --------
 if authentication_status is False:
     st.error("❌ Usuario o contraseña incorrectos.")
     st.stop()
 elif authentication_status is None:
     st.warning("Por favor ingresa tus credenciales.")
     st.stop()
+else:
+    st.success(f"Bienvenido {name} 👋")
 
 # ------------------- APP PRINCIPAL -------------------
 
@@ -238,6 +242,7 @@ elif "Excel ➜ JSON" in modo:
 st.sidebar.title("👤 Usuario")
 st.sidebar.write(f"Bienvenido, {st.session_state['name']}")
 authenticator.logout("🚪 Cerrar sesión", "sidebar")
+
 
 
 
