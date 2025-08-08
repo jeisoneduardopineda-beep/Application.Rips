@@ -50,13 +50,6 @@ else:
 st.set_page_config(page_title="Transformador RIPS PGP & EVENTO", layout="centered")
 st.title(f"🔄 Bienvenido {st.session_state['name']}")
 
-# Aquí iría todo el resto de tu código para convertir JSON ↔ Excel
-# ----------------------------------------------------------
-
-st.sidebar.title("👤 Usuario")
-st.sidebar.write(f"Bienvenido, {st.session_state['name']}")
-authenticator.logout("🚪 Cerrar sesión", "sidebar")
-
 # ------------------- FUNCIONES -------------------
 TIPOS_SERVICIOS = [
     "consultas", "procedimientos", "hospitalizacion", "hospitalizaciones",
