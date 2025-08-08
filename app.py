@@ -1,4 +1,3 @@
-
 import streamlit as st
 import os
 import json
@@ -17,30 +16,35 @@ with open('config.yaml') as file:
 authenticator = stauth.Authenticate(
     credentials=config['credentials'],
     cookie_name=config['cookie']['name'],
-    cookie_key=config['cookie']['key'],
-    cookie_expiry_days=config['cookie']['expiry_days']
+    key=config['cookie']['key'],
+    expiry_days=config['cookie']['expiry_days']
 )
 
-# ------------------- FORMULARIO DE LOGIN -------------------
+# ------------------- LOGIN -------------------
 name, authentication_status, username = authenticator.login(
     form_name="🔐 Iniciar sesión",
     location="main"
 )
 
-# ------------------- VALIDAR ESTADO DE AUTENTICACIÓN -------------------
+# ------------------- VALIDAR ESTADO -------------------
 if authentication_status is False:
     st.error("❌ Usuario o contraseña incorrectos.")
     st.stop()
 elif authentication_status is None:
-    st.warning("Por favor ingresa tus credenciales.")
+    st.warning("🔐 Por favor ingresa tus credenciales.")
     st.stop()
 else:
-    st.success(f"Bienvenido {name} 👋")
+    st.success(f"✅ Bienvenido {name}")
 
-# ------------------- APP PRINCIPAL -------------------
+# ------------------- LOGOUT EN SIDEBAR -------------------
+with st.sidebar:
+    st.title("👤 Usuario")
+    st.write(f"Hola, {name}")
+    authenticator.logout("🚪 Cerrar sesión", "sidebar")
 
+# ------------------- CONFIGURACIÓN DE PÁGINA -------------------
 st.set_page_config(page_title="Transformador RIPS PGP & EVENTO", layout="centered")
-st.title(f"🔄 Bienvenido {st.session_state['name']}")
+st.title(f"🔄 Bienvenido {name}")
 
 # ------------------- FUNCIONES -------------------
 TIPOS_SERVICIOS = [
@@ -241,11 +245,6 @@ elif "Excel ➜ JSON" in modo:
                         zipf.writestr(nombre, contenido)
                 buffer.seek(0)
                 st.download_button("⬇️ Descargar ZIP de JSONs", data=buffer, file_name="RIPS_Evento_JSONs.zip")
-
-# ------------------- LOGOUT -------------------
-st.sidebar.title("👤 Usuario")
-st.sidebar.write(f"Bienvenido, {st.session_state['name']}")
-authenticator.logout("🚪 Cerrar sesión", "sidebar")
 
 
 
