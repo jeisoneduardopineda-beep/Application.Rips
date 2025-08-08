@@ -13,13 +13,22 @@ with open('config.yaml') as file:
     config = yaml.load(file, Loader=SafeLoader)
 
 authenticator = stauth.Authenticate(
-    config['credentials'],
-    config['cookie']['name'],
-    config['cookie']['key'],
-    config['cookie']['expiry_days']
+    credentials=config['credentials'],
+    cookie_name=config['cookie']['name'],
+    key=config['cookie']['key'],
+    expiry_days=config['cookie']['expiry_days']
 )
 
-authenticator.login(form_name="🔐 Iniciar sesión")
+name, authentication_status, username = authenticator.login("🔐 Iniciar sesión")
+
+if authentication_status is None:
+    st.warning("Por favor ingresa tus credenciales.")
+    st.stop()
+elif authentication_status is False:
+    st.error("❌ Usuario o contraseña incorrectos.")
+    st.stop()
+else:
+    st.success(f"🔓 Bienvenido {name}")
 
 # ------------------- MANEJO DE ESTADO DE AUTENTICACIÓN -------------------
 if st.session_state["authentication_status"] is None:
@@ -237,5 +246,6 @@ elif st.session_state["authentication_status"]:
     st.sidebar.title("👤 Usuario")
     st.sidebar.write(f"Bienvenido, {st.session_state['name']}")
     authenticator.logout(button_name="🚪 Cerrar sesión", location="sidebar")
+
 
 
