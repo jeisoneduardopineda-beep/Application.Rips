@@ -6,6 +6,21 @@ from io import BytesIO
 import zipfile
 import yaml
 import streamlit_authenticator as stauth
+from yaml.loader import SafeLoader
+# ---------------- GENERADOR DE HASH ----------------
+st.sidebar.title("🔑 Herramientas")
+if st.sidebar.button("Abrir generador de hash"):
+    st.title("🔑 Generador de Hash para Contraseña")
+
+    plain_password = st.text_input("Escribe tu contraseña en texto plano", type="password")
+    if st.button("Generar hash"):
+        if plain_password:
+            hashed_password = stauth.Hasher([plain_password]).generate()[0]
+            st.success("✅ Hash generado con éxito")
+            st.code(hashed_password, language="bash")
+            st.info("Copia este hash y pégalo en tu config.yaml en el campo 'password'.")
+        else:
+            st.error("❌ Ingresa una contraseña antes de generar el hash.")
 
 # ------------------- CARGAR CONFIGURACIÓN DE LOGIN -------------------
 with open("config.yaml") as file:
@@ -241,3 +256,4 @@ elif "Excel ➜ JSON" in modo:
 st.sidebar.title("👤 Usuario")
 st.sidebar.write(f"Bienvenido, {st.session_state['name']}")
 authenticator.logout("🚪 Cerrar sesión", "sidebar")
+
