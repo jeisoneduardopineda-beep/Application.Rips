@@ -6,16 +6,18 @@ from io import BytesIO
 import zipfile
 import yaml
 import streamlit_authenticator as stauth
+from yaml.loader import SafeLoader
 
 # ------------------- CARGAR CONFIGURACIÓN DE LOGIN -------------------
-with open("config.yaml") as file:
-    config = yaml.safe_load(file)
+with open('config.yaml') as file:
+    config = yaml.load(file, Loader=SafeLoader)
 
 authenticator = stauth.Authenticate(
     config['credentials'],
     config['cookie']['name'],
     config['cookie']['key'],
-    config['cookie']['expiry_days']
+    config['cookie']['expiry_days'],
+    config['preauthorized']
 )
 
 # ------------------- LOGIN -------------------
@@ -241,6 +243,7 @@ elif "Excel ➜ JSON" in modo:
 st.sidebar.title("👤 Usuario")
 st.sidebar.write(f"Bienvenido, {st.session_state['name']}")
 authenticator.logout("🚪 Cerrar sesión", "sidebar")
+
 
 
 
