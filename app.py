@@ -19,7 +19,7 @@ authenticator = stauth.Authenticate(
 )
 
 # ------------------- LOGIN -------------------
-authenticator.login("🔐 Iniciar sesión", "main")
+authenticator.login("🔐 Iniciar sesión", location="main")
 
 if st.session_state["authentication_status"] is None:
     st.warning("Por favor ingresa tus credenciales.")
@@ -241,6 +241,7 @@ elif "Excel ➜ JSON" in modo:
 st.sidebar.title("👤 Usuario")
 st.sidebar.write(f"Bienvenido, {st.session_state['name']}")
 authenticator.logout("🚪 Cerrar sesión", "sidebar")
+
 
 
 
