@@ -1,1 +1,20 @@
-jeisoneduardopineda-beep
+credentials:
+  usernames:
+    usuario1:
+      email: usuario1@example.com
+      name: Usuario Uno
+      password: '$2b$12$TkuU9ZUR7GE1Nxd5JxG4nuN9yxAjpksasFkAjPy68K0Otu3zq6a8K'  # contraseña: 1234
+    usuario2:
+      email: usuario2@example.com
+      name: Usuario Dos
+      password: '$2b$12$T9JX71vyyJfQDYQQaJm9m.Dpl0e66VtiMZnRroSlEy.mAnVJ0EOda'  # contraseña: abcd
+
+cookie:
+  name: mi_app_login
+  key: algo_super_secreto
+  expiry_days: 7
+
+preauthorized:
+  emails:
+    - usuario1@example.com
+    - usuario2@example.com
