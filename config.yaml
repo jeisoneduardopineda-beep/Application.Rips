@@ -14,7 +14,3 @@ cookie:
   key: algo_super_secreto
   expiry_days: 7
 
-preauthorized:
-  emails:
-    - usuario1@example.com
-    - usuario2@example.com
