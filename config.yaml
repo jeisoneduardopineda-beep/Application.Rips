@@ -1,15 +1,14 @@
 credentials:
   usernames:
-    jeison:
+    user1:
       name: Jeison Eduardo
-      password: 'pbkdf2:sha256:260000$9eU3MoEUpqKZ...'
-      email: jeison@example.com
-    usuario2:
-      name: Usuario Demo
-      password: 'pbkdf2:sha256:260000$0Oe7UdPaR2V...'
-      email: demo@example.com
+      password: 'pbkdf2:sha256:260000$y3f0Hk...'
 
 cookie:
-  name: autenticacion_rips
-  key: clave_super_secreta
-  expiry_days: 7
+  name: my_cookie
+  key: some_signature_key
+  expiry_days: 3
+
+preauthorized:
+  emails:
+    - jeison@email.com
