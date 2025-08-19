@@ -3,7 +3,7 @@ import os
 import json
 import zipfile
 from io import BytesIO
-
+import re
 import pandas as pd
 import streamlit as st
 import yaml
@@ -81,13 +81,27 @@ def limpiar_valores(d):
     for k, v in d.items():
         if pd.isna(v):
             limpio[k] = None
-        elif k in CAMPOS_NUMERICOS:
+            continue
+
+        # --- Regla específica: codMunicipioResidencia (siempre string de 5 dígitos) ---
+        if k == "codMunicipioResidencia":
+            s = str(v).strip()
+            s = re.sub(r"\.0$", "", s)     # quita residuos tipo "5837.0" de Excel
+            s = re.sub(r"\D", "", s)       # deja solo dígitos
+            limpio[k] = s.zfill(5) if s else None
+            continue
+
+        # --- Resto de campos ---
+        if k in CAMPOS_NUMERICOS:
             try:
                 limpio[k] = int(v) if float(v) == int(v) else float(v)
             except Exception:
                 limpio[k] = None
         elif k in CAMPOS_CODIGOS:
-            limpio[k] = str(v).zfill(2)
+            # Mantén el comportamiento existente para códigos genéricos (mínimo 2 dígitos)
+            s = str(v).strip()
+            s = re.sub(r"\.0$", "", s)
+            limpio[k] = s.zfill(2)
         else:
             limpio[k] = str(v).strip() if not isinstance(v, str) else v.strip()
     return limpio
@@ -257,6 +271,7 @@ elif "Excel ➜ JSON" in modo:
                     zipf.writestr(nombre, contenido)
             buffer.seek(0)
             st.download_button("⬇️ Descargar ZIP de JSONs", data=buffer, file_name="RIPS_Evento_JSONs.zip")
+
 
 
 
