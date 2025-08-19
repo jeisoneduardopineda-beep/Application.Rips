@@ -1,4 +1,4 @@
-# app.py
+# # app.py
 import os
 import json
 import zipfile
@@ -272,7 +272,3 @@ elif "Excel ➜ JSON" in modo:
                     zipf.writestr(nombre, contenido)
             buffer.seek(0)
             st.download_button("⬇️ Descargar ZIP de JSONs", data=buffer, file_name="RIPS_Evento_JSONs.zip")
-
-
-
-
