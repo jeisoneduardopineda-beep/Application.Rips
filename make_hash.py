@@ -1,6 +1,6 @@
 import streamlit_authenticator as stauth
 
-# Lista de contraseñas para distintos usuarios
+# Diccionario: usuario → contraseña en texto plano
 passwords = {
     "jeison": "jeison1411",
     "operador": "operador2025",
@@ -10,5 +10,5 @@ passwords = {
 
 print("=== Hashes generados para config.yaml ===\n")
 for user, pwd in passwords.items():
-    hashed = stauth.Hasher([pwd]).generate()[0]
+    hashed = stauth.Hasher().hash(pwd)
     print(f"{user}: {hashed}")
