@@ -1,274 +1,84 @@
-# # app.py
-import os
-import json
-import zipfile
-from io import BytesIO
-
-import pandas as pd
+## app.py (DIAGNÓSTICO)
 import streamlit as st
-import yaml
+st.set_page_config(page_title="Diagnóstico Login", layout="centered")
+
+st.title("🩺 Diagnóstico de Autenticación")
+
+import yaml, traceback
 from yaml.loader import SafeLoader
-import streamlit_authenticator as stauth
-from packaging import version
 
-# -------------------------------------------------------------------
-# Config de la página SIEMPRE primero
-# -------------------------------------------------------------------
-st.set_page_config(page_title="Transformador RIPS PGP & EVENTO", layout="centered")
+# 1) Mostrar ruta actual y listar archivos
+import os, glob
+st.write("**Working dir:**", os.getcwd())
+st.write("**Archivos en raíz:**", sorted([os.path.basename(p) for p in glob.glob("*")]))
+st.write("---")
 
-# -------------------------------------------------------------------
-# Cargar config.yaml
-# -------------------------------------------------------------------
-with open("config.yaml", "r", encoding="utf-8") as f:
-    config = yaml.load(f, Loader=SafeLoader)
-
-# Normaliza usernames a minúsculas
-if "credentials" in config and "usernames" in config["credentials"]:
-    config["credentials"]["usernames"] = {
-        str(k).lower(): v for k, v in config["credentials"]["usernames"].items()
-    }
-
-# -------------------------------------------------------------------
-# Autenticación compatible con 0.2.x y 0.3.x
-# -------------------------------------------------------------------
-sa_ver = getattr(stauth, "__version__", "0.2.3")
-
-if version.parse(sa_ver) >= version.parse("0.3.0"):
-    # 0.3.x: keywords y cookie_expiry_days
-    authenticator = stauth.Authenticate(
-        credentials=config["credentials"],
-        cookie_name=config["cookie"]["name"],
-        key=config["cookie"]["key"],
-        cookie_expiry_days=config["cookie"]["expiry_days"],
-    )
-    name, authentication_status, username = authenticator.login(
-        form_name="🔐 Iniciar sesión", location="main"
-    )
-else:
-    # 0.2.x: SOLO posicionales (5° parámetro = preauthorized emails)
-    authenticator = stauth.Authenticate(
-        config["credentials"],
-        config["cookie"]["name"],
-        config["cookie"]["key"],
-        config["cookie"]["expiry_days"],
-        config.get("preauthorized", {}).get("emails", []),
-    )
-    name, authentication_status, username = authenticator.login("🔐 Iniciar sesión", "main")
-
-# -------------------------------------------------------------------
-# Estados de login
-# -------------------------------------------------------------------
-if authentication_status is False:
-    st.error("❌ Usuario o contraseña incorrectos.")
-    st.stop()
-elif authentication_status is None:
-    st.warning("Por favor ingresa tus credenciales.")
+# 2) Intentar leer config.yaml
+try:
+    with open("config.yaml", "r", encoding="utf-8") as f:
+        config = yaml.load(f, Loader=SafeLoader)
+    st.success("✅ config.yaml leído")
+    st.write("Claves en config:", list(config.keys()))
+    st.write("Usernames:", list(config.get("credentials", {}).get("usernames", {}).keys()))
+except Exception as e:
+    st.error("❌ Error leyendo config.yaml")
+    st.exception(e)
     st.stop()
 
-# Autenticado
-authenticator.logout("🚪 Cerrar sesión", "sidebar")
-st.title(f"🔄 Bienvenido {name}")
+# 3) Mostrar versión de streamlit-authenticator
+try:
+    import streamlit_authenticator as stauth
+    ver = getattr(stauth, "__version__", "desconocida")
+    st.write("**streamlit-authenticator versión:**", ver)
+except Exception as e:
+    st.error("❌ No se pudo importar streamlit_authenticator")
+    st.exception(e)
+    st.stop()
 
-# -------------------------------------------------------------------
-# Conversor RIPS PGP / Evento
-# -------------------------------------------------------------------
-TIPOS_SERVICIOS = [
-    "consultas", "procedimientos", "hospitalizacion", "hospitalizaciones",
-    "urgencias", "reciennacidos", "medicamentos", "otrosservicios", "otrosServicios",
-]
-
-CAMPOS_NUMERICOS = [
-    "consecutivo", "codServicio", "vrServicio", "valorPagoModerador",
-    "concentracionMedicamento", "unidadMedida", "unidadMinDispensa",
-    "cantidadMedicamento", "diasTratamiento", "vrUnitMedicamento",
-    "idMIPRES", "cantidadOS", "vrUnitOS",
-]
-
-CAMPOS_CODIGOS = [
-    "tipoUsuario", "viaIngresoServicioSalud", "modalidadGrupoServicioTecSal",
-    "grupoServicios", "finalidadTecnologiaSalud", "conceptoRecaudo",
-    "tipoMedicamento", "tipoOS", "codZonaTerritorialResidencia",
-    "codPaisResidencia", "codPaisOrigen",
-]
-
-def limpiar_valores(d):
-    limpio = {}
-    for k, v in d.items():
-        if pd.isna(v):
-            limpio[k] = None
-        elif k in CAMPOS_NUMERICOS:
-            try:
-                limpio[k] = int(v) if float(v) == int(v) else float(v)
-            except Exception:
-                limpio[k] = None
-        elif k in CAMPOS_CODIGOS:
-            limpio[k] = str(v).zfill(2)
-        else:
-            limpio[k] = str(v).strip() if not isinstance(v, str) else v.strip()
-    return limpio
-
-def json_to_excel(files, tipo_factura):
-    datos = {tipo: [] for tipo in ["usuarios"] + list(set([s.lower() for s in TIPOS_SERVICIOS]))}
-    for archivo in files:
-        data = json.load(archivo)
-        num_factura = data.get("numFactura", "SIN_FACTURA")
-        archivo_origen = os.path.splitext(archivo.name)[0]
-        usuarios = data.get("usuarios", [])
-
-        for usuario in usuarios:
-            servicios = usuario.get("servicios", {})
-            usuario_limpio = usuario.copy()
-            usuario_limpio.pop("servicios", None)
-            usuario_limpio["archivo_origen"] = archivo_origen
-            usuario_limpio["numFactura"] = num_factura
-            datos["usuarios"].append(usuario_limpio)
-
-            for tipo, registros in servicios.items():
-                tipo_normalizado = tipo.lower()
-                if tipo_normalizado in datos:
-                    for reg in registros:
-                        reg = reg.copy()
-                        reg["numFactura"] = num_factura
-                        reg["documento_usuario"] = usuario.get("numDocumentoIdentificacion")
-                        reg["archivo_origen"] = archivo_origen
-                        datos[tipo_normalizado].append(reg)
-
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-        for tipo, registros in datos.items():
-            if registros:
-                df = pd.DataFrame(registros)
-                df.to_excel(writer, sheet_name=tipo.capitalize(), index=False)
-    output.seek(0)
-    return output
-
-def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
-    xlsx = pd.read_excel(archivo_excel, sheet_name=None)
-    dataframes = {k.lower(): v for k, v in xlsx.items()}
-    if "usuarios" not in dataframes:
-        st.error("❌ El archivo no contiene una hoja llamada 'usuarios'.")
-        return None
-
-    usuarios_df = dataframes["usuarios"]
-    tipos_servicios = [k for k in dataframes if k != "usuarios"]
-
-    if tipo_factura == "PGP":
-        facturas = usuarios_df["numFactura"].dropna().unique()
-        if len(facturas) != 1:
-            st.error("❌ Para PGP solo se permite una única factura.")
-            return None
-
-        factura = facturas[0]
-        usuarios_final = []
-
-        for _, usuario in usuarios_df.iterrows():
-            usuario_dict = usuario.to_dict()
-            doc = usuario_dict.get("numDocumentoIdentificacion") or usuario_dict.get("documento_usuario")
-            usuario_limpio = limpiar_valores(usuario_dict)
-            usuario_limpio.pop("archivo_origen", None)
-            usuario_limpio.pop("numFactura", None)
-
-            servicios_dict = {}
-            for tipo in tipos_servicios:
-                df_tipo = dataframes[tipo]
-                registros = df_tipo[df_tipo["documento_usuario"] == doc]
-                if not registros.empty:
-                    registros = registros.drop(columns=["numFactura", "documento_usuario", "archivo_origen"], errors="ignore")
-                    registros_limpios = [limpiar_valores(r) for _, r in registros.iterrows()]
-                    servicios_dict[tipo] = registros_limpios
-
-            usuario_limpio["servicios"] = servicios_dict
-            usuarios_final.append(usuario_limpio)
-
-        salida_json = {
-            "numDocumentoIdObligado": nit_obligado,
-            "numFactura": factura,
-            "tipoNota": None,
-            "numNota": None,
-            "usuarios": usuarios_final,
-        }
-
-        return {
-            "tipo": "único",
-            "contenido": json.dumps(salida_json, ensure_ascii=False, indent=2),
-            "nombre": f"Factura_RIPS_{tipo_factura}.json",
-        }
-
+# 4) Crear authenticator con compat 0.2.x / 0.3.x
+try:
+    from packaging import version as _v
+    if _v.parse(ver) >= _v.parse("0.3.0"):
+        authenticator = stauth.Authenticate(
+            credentials=config["credentials"],
+            cookie_name=config["cookie"]["name"],
+            key=config["cookie"]["key"],
+            cookie_expiry_days=config["cookie"]["expiry_days"],
+        )
+        mode = "0.3.x"
     else:
-        salida_archivos = {}
-        for factura in usuarios_df["numFactura"].dropna().unique():
-            usuarios_factura = usuarios_df[usuarios_df["numFactura"] == factura]
-            usuarios_final = []
+        authenticator = stauth.Authenticate(
+            config["credentials"],
+            config["cookie"]["name"],
+            config["cookie"]["key"],
+            config["cookie"]["expiry_days"],
+            config.get("preauthorized", {}).get("emails", []),
+        )
+        mode = "0.2.x"
+    st.success(f"✅ Authenticator creado (modo {mode})")
+except Exception as e:
+    st.error("❌ Error creando el authenticator")
+    st.exception(e)
+    st.stop()
 
-            for _, usuario in usuarios_factura.iterrows():
-                usuario_dict = usuario.to_dict()
-                doc = usuario_dict.get("numDocumentoIdentificacion") or usuario_dict.get("documento_usuario")
-                usuario_limpio = limpiar_valores(usuario_dict)
-                usuario_limpio.pop("archivo_origen", None)
-                usuario_limpio.pop("numFactura", None)
+# 5) Formulario de login
+try:
+    if _v.parse(ver) >= _v.parse("0.3.0"):
+        name, auth_status, username = authenticator.login(form_name="🔐 Iniciar sesión", location="main")
+    else:
+        name, auth_status, username = authenticator.login("🔐 Iniciar sesión", "main")
 
-                servicios_dict = {}
-                for tipo in tipos_servicios:
-                    df_tipo = dataframes[tipo]
-                    registros = df_tipo[
-                        (df_tipo["numFactura"] == factura) &
-                        (df_tipo["documento_usuario"] == doc)
-                    ]
-                    if not registros.empty:
-                        registros = registros.drop(columns=["numFactura", "documento_usuario", "archivo_origen"], errors="ignore")
-                        registros_limpios = [limpiar_valores(r) for _, r in registros.iterrows()]
-                        servicios_dict[tipo] = registros_limpios
+    st.write("Estado auth_status:", auth_status)
 
-                usuario_limpio["servicios"] = servicios_dict
-                usuarios_final.append(usuario_limpio)
+    if auth_status is False:
+        st.error("Usuario o contraseña incorrectos.")
+    elif auth_status is None:
+        st.warning("Ingresa tus credenciales.")
+    else:
+        st.success(f"Bienvenido, {name} (@{username})")
+        authenticator.logout("🚪 Cerrar sesión", "sidebar")
+except Exception as e:
+    st.error("❌ Error en el login() o logout()")
+    st.exception(e)
 
-            salida_json = {
-                "numDocumentoIdObligado": nit_obligado,
-                "numFactura": factura,
-                "tipoNota": None,
-                "numNota": None,
-                "usuarios": usuarios_final,
-            }
 
-            salida_archivos[f"{factura}_RIPS.json"] = json.dumps(salida_json, ensure_ascii=False, indent=2)
-
-    return {"tipo": "zip", "contenido": salida_archivos}
-
-# -------------------------------------------------------------------
-# UI
-# -------------------------------------------------------------------
-st.subheader("📄 Transformador RIPS: PGP y EVENTO")
-
-modo = st.radio(
-    "Selecciona el tipo de conversión:",
-    ["📥 JSON ➜ Excel (PGP)", "📤 Excel ➜ JSON (PGP)",
-     "📥 JSON ➜ Excel (Evento)", "📤 Excel ➜ JSON (Evento)"]
-)
-
-nit_obligado = st.text_input("🔢 NIT del Obligado a Facturar", value="900364721")
-
-resultado = None
-
-if "JSON ➜ Excel" in modo:
-    archivos = st.file_uploader("📂 Selecciona uno o varios archivos JSON", type=["json"], accept_multiple_files=True)
-    if archivos and st.button("🚀 Convertir a Excel"):
-        tipo_factura = "PGP" if "PGP" in modo else "EVENTO"
-        excel_data = json_to_excel(archivos, tipo_factura)
-        st.download_button("⬇️ Descargar Excel", data=excel_data, file_name=f"RIPS_Consolidado_{tipo_factura}.xlsx")
-
-elif "Excel ➜ JSON" in modo:
-    archivo_excel = st.file_uploader("📂 Selecciona archivo Excel", type=["xlsx"])
-    if archivo_excel and st.button("🚀 Convertir a JSON"):
-        tipo_factura = "PGP" if "PGP" in modo else "EVENTO"
-        resultado = excel_to_json(archivo_excel, tipo_factura, nit_obligado)
-
-    if resultado:
-        if resultado["tipo"] == "único":
-            st.download_button("⬇️ Descargar JSON", data=resultado["contenido"].encode("utf-8"), file_name=resultado["nombre"])
-        elif resultado["tipo"] == "zip":
-            buffer = BytesIO()
-            with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zipf:
-                for nombre, contenido in resultado["contenido"].items():
-                    zipf.writestr(nombre, contenido)
-            buffer.seek(0)
-            st.download_button("⬇️ Descargar ZIP de JSONs", data=buffer, file_name="RIPS_Evento_JSONs.zip")
