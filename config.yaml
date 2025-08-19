@@ -3,7 +3,7 @@ credentials:
     admin:
       name: Jeison Eduardo
       # ⬇️ Reemplaza este hash por el que generes con hash.py si quieres otra clave
-      password: "$2b$12$Wz7KXlEisF3GJ6NwH/FfeOJnK7cfjGyYp3r0x6a1M4wB0RuPSm5/S"
+      password: "$2b$12$MRbdtEWCTQ3oDNojUjz85uUCD15QOLr1KXy6Zl2NlZDDQbaTxruj"
 
 cookie:
   name: my_cookie
