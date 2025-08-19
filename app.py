@@ -259,3 +259,4 @@ elif "Excel ➜ JSON" in modo:
             st.download_button("⬇️ Descargar ZIP de JSONs", data=buffer, file_name="RIPS_Evento_JSONs.zip")
 
 
+
