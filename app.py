@@ -13,7 +13,7 @@ import streamlit_authenticator as stauth
 # -------------------------------------------------------------------
 # Config de página + LOGO
 # -------------------------------------------------------------------
-LOGO_PATH = "assets/medidatarips_logo.png"
+LOGO_PATH = "medidatarips_logo.png"
 page_icon = LOGO_PATH if os.path.exists(LOGO_PATH) else None
 
 st.set_page_config(
@@ -298,6 +298,7 @@ elif "Excel ➜ JSON" in modo:
                     zipf.writestr(nombre, contenido)
             buffer.seek(0)
             st.download_button("⬇️ Descargar ZIP de JSONs", data=buffer, file_name="RIPS_Evento_JSONs.zip")
+
 
 
 
