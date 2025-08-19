@@ -30,7 +30,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-def render_logo_left(path:str, height_px:int = 80):
+def render_logo_left(path:str, height_px:int = 120):
     """Muestra el logo 100% a la izquierda usando HTML seguro con base64."""
     with open(path, "rb") as f:
         b64 = base64.b64encode(f.read()).decode()
@@ -310,6 +310,7 @@ elif "Excel ➜ JSON" in modo:
                     zipf.writestr(nombre, contenido)
             buffer.seek(0)
             st.download_button("⬇️ Descargar ZIP de JSONs", data=buffer, file_name="RIPS_Evento_JSONs.zip")
+
 
 
 
