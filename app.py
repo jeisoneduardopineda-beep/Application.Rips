@@ -1,3 +1,4 @@
+# app.py
 import os
 import json
 import zipfile
@@ -11,7 +12,7 @@ import streamlit_authenticator as stauth
 from packaging import version
 
 # -------------------------------------------------------------------
-# Config básica de la app SIEMPRE al inicio
+# Config de la página SIEMPRE primero
 # -------------------------------------------------------------------
 st.set_page_config(page_title="Transformador RIPS PGP & EVENTO", layout="centered")
 
@@ -21,7 +22,7 @@ st.set_page_config(page_title="Transformador RIPS PGP & EVENTO", layout="centere
 with open("config.yaml", "r", encoding="utf-8") as f:
     config = yaml.load(f, Loader=SafeLoader)
 
-# Normaliza usernames a minúsculas (evita fallos por mayúsculas)
+# Normaliza usernames a minúsculas
 if "credentials" in config and "usernames" in config["credentials"]:
     config["credentials"]["usernames"] = {
         str(k).lower(): v for k, v in config["credentials"]["usernames"].items()
@@ -33,7 +34,7 @@ if "credentials" in config and "usernames" in config["credentials"]:
 sa_ver = getattr(stauth, "__version__", "0.2.3")
 
 if version.parse(sa_ver) >= version.parse("0.3.0"):
-    # 0.3.x acepta keywords y usa cookie_expiry_days
+    # 0.3.x: keywords y cookie_expiry_days
     authenticator = stauth.Authenticate(
         credentials=config["credentials"],
         cookie_name=config["cookie"]["name"],
@@ -41,11 +42,10 @@ if version.parse(sa_ver) >= version.parse("0.3.0"):
         cookie_expiry_days=config["cookie"]["expiry_days"],
     )
     name, authentication_status, username = authenticator.login(
-        form_name="🔐 Iniciar sesión",
-        location="main",
+        form_name="🔐 Iniciar sesión", location="main"
     )
 else:
-    # 0.2.x SOLO posicional (y quinto parámetro: preauthorized emails)
+    # 0.2.x: SOLO posicionales (5° parámetro = preauthorized emails)
     authenticator = stauth.Authenticate(
         config["credentials"],
         config["cookie"]["name"],
@@ -259,7 +259,6 @@ if "JSON ➜ Excel" in modo:
 elif "Excel ➜ JSON" in modo:
     archivo_excel = st.file_uploader("📂 Selecciona archivo Excel", type=["xlsx"])
     if archivo_excel and st.button("🚀 Convertir a JSON"):
-        tipo_factura = "PGP" si "PGP" en modo else "EVENTO"  # ← si te marca error, cambia 'si' por 'if' (teclado ES)
         tipo_factura = "PGP" if "PGP" in modo else "EVENTO"
         resultado = excel_to_json(archivo_excel, tipo_factura, nit_obligado)
 
@@ -273,6 +272,7 @@ elif "Excel ➜ JSON" in modo:
                     zipf.writestr(nombre, contenido)
             buffer.seek(0)
             st.download_button("⬇️ Descargar ZIP de JSONs", data=buffer, file_name="RIPS_Evento_JSONs.zip")
+
 
 
 
