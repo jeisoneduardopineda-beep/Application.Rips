@@ -1,7 +1,7 @@
 credentials:
   usernames:
     admin:
-      name: Jeison Eduardo
+      name: Jeisson Eduardo
       # ⬇️ Reemplaza este hash por el que generes con hash.py si quieres otra clave
       password: "$2b$12$PWb1bkGeHYRX2YInizX2P.4.4.fkxCScxAuZzLnz3mTwrFW.qqYEC"
 
