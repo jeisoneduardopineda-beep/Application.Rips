@@ -1,8 +1,10 @@
 import streamlit_authenticator as stauth
 
-# Aquí escribes la clave que quieres usar en texto plano
-passwords = ['jeison1411']
+# 🔑 Pide la contraseña al usuario
+password = input("Escribe la contraseña que quieres encriptar: ")
 
-# Esto genera los hashes
-hashes = stauth.Hasher(passwords).generate()
-print(hashes)
+# 🛠️ Usa el método correcto de la librería
+hashed_passwords = stauth.Hasher().hash(password)
+
+print("\nContraseña encriptada:\n")
+print(hashed_passwords)
