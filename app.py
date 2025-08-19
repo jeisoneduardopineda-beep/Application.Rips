@@ -11,9 +11,23 @@ from yaml.loader import SafeLoader
 import streamlit_authenticator as stauth
 
 # -------------------------------------------------------------------
-# Config de página
+# Config de página + LOGO
 # -------------------------------------------------------------------
-st.set_page_config(page_title="Transformador RIPS PGP & EVENTO", layout="centered")
+LOGO_PATH = "assets/medidatarips_logo.png"
+page_icon = LOGO_PATH if os.path.exists(LOGO_PATH) else None
+
+st.set_page_config(
+    page_title="Transformador RIPS PGP & EVENTO",
+    layout="centered",
+    page_icon=page_icon  # favicon con el logo si existe
+)
+
+# (Opcional) Ajuste visual para que el logo “respire” mejor arriba
+st.markdown("""
+<style>
+.block-container { padding-top: 1.2rem; }
+</style>
+""", unsafe_allow_html=True)
 
 # -------------------------------------------------------------------
 # Cargar config.yaml
@@ -52,6 +66,19 @@ elif authentication_status is None:
 
 # Autenticado
 authenticator.logout("🚪 Cerrar sesión", "sidebar")
+
+# --- LOGO en sidebar (opcional) ---
+if os.path.exists(LOGO_PATH):
+    st.sidebar.image(LOGO_PATH, use_column_width=True)
+
+# --- LOGO centrado en el encabezado ---
+if os.path.exists(LOGO_PATH):
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.image(LOGO_PATH, use_column_width=True)
+else:
+    st.info("Sube el logo en 'assets/medidatarips_logo.png' para verlo aquí.")
+
 st.title(f"🔄 Bienvenido {name}")
 
 # ===========================================================
@@ -271,7 +298,6 @@ elif "Excel ➜ JSON" in modo:
                     zipf.writestr(nombre, contenido)
             buffer.seek(0)
             st.download_button("⬇️ Descargar ZIP de JSONs", data=buffer, file_name="RIPS_Evento_JSONs.zip")
-
 
 
 
