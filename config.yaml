@@ -1,10 +1,11 @@
 credentials:
   usernames:
     admin:
-      name: Administrador
-      password: '$2b$12$wO7m7J3aXYhXnU6a4.KRSeTwJtXkLE7/4vPXFYfJeZ9geGhDCIqum'
+      name: Jeison Eduardo
+      # ⬇️ Reemplaza este hash por el que generes con hash.py si quieres otra clave
+      password: "$2b$12$Wz7KXlEisF3GJ6NwH/FfeOJnK7cfjGyYp3r0x6a1M4wB0RuPSm5/S"
 
 cookie:
-  name: rips_app_cookie
-  key: clave_ultrasecreta_123
-  expiry_days: 30
+  name: my_cookie
+  key: some_signature_key
+  expiry_days: 3
