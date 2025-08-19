@@ -71,9 +71,16 @@ authenticator.logout("🚪 Cerrar sesión", "sidebar")
 if os.path.exists(LOGO_PATH):
     st.sidebar.image(LOGO_PATH, use_container_width=True)
 
-# --- LOGO arriba a la izquierda ---
 if os.path.exists(LOGO_PATH):
-    st.image(LOGO_PATH, use_container_width=True)
+    st.markdown(
+        f"""
+        <div style="display:flex; align-items:center; justify-content:flex-start;">
+            <img src="data:image/png;base64,{st.image(LOGO_PATH, use_container_width=False).image_to_bytes().decode()}" 
+                 alt="Logo" style="height:80px;">
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 else:
     st.info("Sube el archivo de logo 'medidatarips_logo.png' en la carpeta de la app.")
 st.title(f"🔄 Bienvenido {name}")
@@ -295,6 +302,7 @@ elif "Excel ➜ JSON" in modo:
                     zipf.writestr(nombre, contenido)
             buffer.seek(0)
             st.download_button("⬇️ Descargar ZIP de JSONs", data=buffer, file_name="RIPS_Evento_JSONs.zip")
+
 
 
 
