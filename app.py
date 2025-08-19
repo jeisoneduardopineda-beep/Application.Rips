@@ -13,7 +13,7 @@ import streamlit_authenticator as stauth
 # -------------------------------------------------------------------
 # Config de página + LOGO
 # -------------------------------------------------------------------
-LOGO_PATH = "medidatarips_logo.png"
+LOGO_PATH = "medidatarips_logo.png"  # coloca aquí tu archivo de logo
 page_icon = LOGO_PATH if os.path.exists(LOGO_PATH) else None
 
 st.set_page_config(
@@ -69,15 +69,15 @@ authenticator.logout("🚪 Cerrar sesión", "sidebar")
 
 # --- LOGO en sidebar (opcional) ---
 if os.path.exists(LOGO_PATH):
-    st.sidebar.image(LOGO_PATH, use_column_width=True)
+    st.sidebar.image(LOGO_PATH, use_container_width=True)
 
 # --- LOGO centrado en el encabezado ---
 if os.path.exists(LOGO_PATH):
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.image(logo_path, use_container_width=True)
+        st.image(LOGO_PATH, use_container_width=True)
 else:
-    st.info("Sube el logo en 'assets/medidatarips_logo.png' para verlo aquí.")
+    st.info("Sube el archivo de logo 'medidatarips_logo.png' en la carpeta de la app.")
 
 st.title(f"🔄 Bienvenido {name}")
 
@@ -125,7 +125,7 @@ def limpiar_valores(d):
             except Exception:
                 limpio[k] = None
         elif k in CAMPOS_CODIGOS:
-            # Mantén el comportamiento existente para códigos genéricos (mínimo 2 dígitos)
+            # códigos genéricos (mínimo 2 dígitos)
             s = str(v).strip()
             s = re.sub(r"\.0$", "", s)
             limpio[k] = s.zfill(2)
@@ -298,9 +298,6 @@ elif "Excel ➜ JSON" in modo:
                     zipf.writestr(nombre, contenido)
             buffer.seek(0)
             st.download_button("⬇️ Descargar ZIP de JSONs", data=buffer, file_name="RIPS_Evento_JSONs.zip")
-
-
-
 
 
 
