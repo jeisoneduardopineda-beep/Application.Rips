@@ -4,6 +4,7 @@ import json
 import zipfile
 from io import BytesIO
 import re
+import base64
 import pandas as pd
 import streamlit as st
 import yaml
@@ -28,6 +29,19 @@ st.markdown("""
 .block-container { padding-top: 1.2rem; }
 </style>
 """, unsafe_allow_html=True)
+
+def render_logo_left(path:str, height_px:int = 80):
+    """Muestra el logo 100% a la izquierda usando HTML seguro con base64."""
+    with open(path, "rb") as f:
+        b64 = base64.b64encode(f.read()).decode()
+    st.markdown(
+        f"""
+        <div style="display:flex; align-items:center; justify-content:flex-start;">
+            <img src="data:image/png;base64,{b64}" alt="Logo MedidataRIPS" style="height:{height_px}px;">
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 # -------------------------------------------------------------------
 # Cargar config.yaml
@@ -71,18 +85,12 @@ authenticator.logout("🚪 Cerrar sesión", "sidebar")
 if os.path.exists(LOGO_PATH):
     st.sidebar.image(LOGO_PATH, use_container_width=True)
 
+# --- LOGO arriba totalmente a la izquierda ---
 if os.path.exists(LOGO_PATH):
-    st.markdown(
-        f"""
-        <div style="display:flex; align-items:center; justify-content:flex-start;">
-            <img src="data:image/png;base64,{st.image(LOGO_PATH, use_container_width=False).image_to_bytes().decode()}" 
-                 alt="Logo" style="height:80px;">
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    render_logo_left(LOGO_PATH, height_px=90)
 else:
     st.info("Sube el archivo de logo 'medidatarips_logo.png' en la carpeta de la app.")
+
 st.title(f"🔄 Bienvenido {name}")
 
 # ===========================================================
@@ -302,6 +310,7 @@ elif "Excel ➜ JSON" in modo:
                     zipf.writestr(nombre, contenido)
             buffer.seek(0)
             st.download_button("⬇️ Descargar ZIP de JSONs", data=buffer, file_name="RIPS_Evento_JSONs.zip")
+
 
 
 
