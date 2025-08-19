@@ -87,7 +87,7 @@ if os.path.exists(LOGO_PATH):
 
 # --- LOGO arriba totalmente a la izquierda ---
 if os.path.exists(LOGO_PATH):
-    render_logo_left(LOGO_PATH, height_px=90)
+    render_logo_left(LOGO_PATH, height_px=120)
 else:
     st.info("Sube el archivo de logo 'medidatarips_logo.png' en la carpeta de la app.")
 
@@ -310,6 +310,7 @@ elif "Excel ➜ JSON" in modo:
                     zipf.writestr(nombre, contenido)
             buffer.seek(0)
             st.download_button("⬇️ Descargar ZIP de JSONs", data=buffer, file_name="RIPS_Evento_JSONs.zip")
+
 
 
 
