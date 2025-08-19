@@ -4,10 +4,7 @@ credentials:
       name: Jeisson Eduardo
       # ⬇️ Reemplaza este hash por el que generes con hash.py si quieres otra clave
       password: "$2b$12$PWb1bkGeHYRX2YInizX2P.4.4.fkxCScxAuZzLnz3mTwrFW.qqYEC"
- operador1:
-      name: "Operador de Facturación"
-      # Hash de "Operador2025!"
-      password: "$2b$12$7Aa3e0xjRnZpIoAqWeXfwOxjh7fSx37iE3qp6/H7vJ8OdQjLQSE7i"
+
 cookie:
   name: my_cookie
   key: some_signature_key
