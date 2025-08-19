@@ -1,46 +1,36 @@
+
 import streamlit as st
 import os
 import json
-import pandas as pd
-from io import BytesIO
 import zipfile
-import yaml
-import streamlit_authenticator as stauth
-from yaml.loader import SafeLoader
+from io import BytesIO
 
-# ------------------- CARGAR CONFIGURACIÓN -------------------
+import pandas as pd
+import yaml
+from yaml.loader import SafeLoader
+import streamlit_authenticator as stauth   # 👈 IMPORTANTE
+
+# ------------------- CARGAR CONFIGURACIÓN DE LOGIN -------------------
 with open('config.yaml') as file:
     config = yaml.load(file, Loader=SafeLoader)
 
-# ------------------- AUTENTICACIÓN (Versión 0.4.2) -------------------
+# ------------------- CREAR OBJETO DE AUTENTICACIÓN -------------------
 authenticator = stauth.Authenticate(
-    config['credentials'],
-    config['cookie']['name'],
-    config['cookie']['key'],
-    config['cookie']['expiry_days']
+    credentials=config['credentials'],
+    cookie_name=config['cookie']['name'],
+    key=config['cookie']['key'],
+    expiry_days=config['cookie']['expiry_days']
 )
 
-# ------------------- BARRA LATERAL: GENERADOR DE HASH -------------------
-st.sidebar.title("🔑 Herramientas")
-if st.sidebar.button("Abrir generador de hash"):
-    st.session_state["show_hash_gen"] = True
+# ------------------- FORMULARIO DE LOGIN -------------------
+name, authentication_status, username = authenticator.login(
+    form_name="🔐 Iniciar sesión",
+    location="main"
+)
 
-if st.session_state.get("show_hash_gen", False):
-    st.sidebar.subheader("Generar hash de contraseña")
-    new_password = st.sidebar.text_input("Introduce la contraseña", type="password")
-    if st.sidebar.button("Generar hash"):
-        if new_password:
-            hashed = stauth.Hasher([new_password]).generate()
-            st.sidebar.code(hashed[0], language="text")
-        else:
-            st.sidebar.warning("Introduce una contraseña primero.")
-
-# ------------------- LOGIN -------------------
-name, authentication_status, username = authenticator.login("Iniciar sesión", "main")
-
+# ------------------- VALIDAR ESTADO DE AUTENTICACIÓN -------------------
 if authentication_status is False:
-    st.error("❌ Usuario o contraseña incorrectos.")
-    st.stop()
+    st.error("❌ Usuario o contraseña incorrectos")
 elif authentication_status is None:
     st.warning("Por favor ingresa tus credenciales.")
     st.stop()
@@ -51,6 +41,7 @@ else:
 st.set_page_config(page_title="Transformador RIPS PGP & EVENTO", layout="centered")
 st.title(f"🔄 Bienvenido {st.session_state['name']}")
 
+# ------------------- FUNCIONES -------------------
 TIPOS_SERVICIOS = [
     "consultas", "procedimientos", "hospitalizacion", "hospitalizaciones",
     "urgencias", "reciennacidos", "medicamentos", "otrosservicios", "otrosServicios"
@@ -78,7 +69,7 @@ def limpiar_valores(d):
         elif k in CAMPOS_NUMERICOS:
             try:
                 limpio[k] = int(v) if float(v) == int(v) else float(v)
-            except:
+            except Exception:
                 limpio[k] = None
         elif k in CAMPOS_CODIGOS:
             limpio[k] = str(v).zfill(2)
@@ -132,7 +123,7 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
     tipos_servicios = [k for k in dataframes if k != "usuarios"]
 
     if tipo_factura == "PGP":
-        facturas = usuarios_df['numFactura'].dropna().unique()
+        facturas = usuarios_df["numFactura"].dropna().unique()
         if len(facturas) != 1:
             st.error("❌ Para PGP solo se permite una única factura.")
             return None
@@ -152,7 +143,7 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
                 df_tipo = dataframes[tipo]
                 registros = df_tipo[df_tipo["documento_usuario"] == doc]
                 if not registros.empty:
-                    registros = registros.drop(columns=["numFactura", "documento_usuario", "archivo_origen"], errors='ignore')
+                    registros = registros.drop(columns=["numFactura", "documento_usuario", "archivo_origen"], errors="ignore")
                     registros_limpios = [limpiar_valores(r) for _, r in registros.iterrows()]
                     servicios_dict[tipo] = registros_limpios
 
@@ -164,19 +155,19 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
             "numFactura": factura,
             "tipoNota": None,
             "numNota": None,
-            "usuarios": usuarios_final
+            "usuarios": usuarios_final,
         }
 
         return {
             "tipo": "único",
             "contenido": json.dumps(salida_json, ensure_ascii=False, indent=2),
-            "nombre": f"Factura_RIPS_{tipo_factura}.json"
+            "nombre": f"Factura_RIPS_{tipo_factura}.json",
         }
 
     else:
         salida_archivos = {}
-        for factura in usuarios_df['numFactura'].dropna().unique():
-            usuarios_factura = usuarios_df[usuarios_df['numFactura'] == factura]
+        for factura in usuarios_df["numFactura"].dropna().unique():
+            usuarios_factura = usuarios_df[usuarios_df["numFactura"] == factura]
             usuarios_final = []
 
             for _, usuario in usuarios_factura.iterrows():
@@ -194,7 +185,7 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
                         (df_tipo["documento_usuario"] == doc)
                     ]
                     if not registros.empty:
-                        registros = registros.drop(columns=["numFactura", "documento_usuario", "archivo_origen"], errors='ignore')
+                        registros = registros.drop(columns=["numFactura", "documento_usuario", "archivo_origen"], errors="ignore")
                         registros_limpios = [limpiar_valores(r) for _, r in registros.iterrows()]
                         servicios_dict[tipo] = registros_limpios
 
@@ -206,17 +197,19 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
                 "numFactura": factura,
                 "tipoNota": None,
                 "numNota": None,
-                "usuarios": usuarios_final
+                "usuarios": usuarios_final,
             }
 
             salida_archivos[f"{factura}_RIPS.json"] = json.dumps(salida_json, ensure_ascii=False, indent=2)
 
-        return {
-            "tipo": "zip",
-            "contenido": salida_archivos
-        }
+    return {
+        "tipo": "zip",
+        "contenido": salida_archivos
+    }
 
 # ------------------- INTERFAZ DE USUARIO -------------------
+st.title("📄 Transformador RIPS: PGP y EVENTO")
+
 modo = st.radio("Selecciona el tipo de conversión:", [
     "📥 JSON ➜ Excel (PGP)", "📤 Excel ➜ JSON (PGP)",
     "📥 JSON ➜ Excel (Evento)", "📤 Excel ➜ JSON (Evento)"
@@ -224,12 +217,18 @@ modo = st.radio("Selecciona el tipo de conversión:", [
 
 nit_obligado = st.text_input("🔢 NIT del Obligado a Facturar", value="900364721")
 
+resultado = None
+
 if "JSON ➜ Excel" in modo:
     archivos = st.file_uploader("📂 Selecciona uno o varios archivos JSON", type=["json"], accept_multiple_files=True)
     if archivos and st.button("🚀 Convertir a Excel"):
         tipo_factura = "PGP" if "PGP" in modo else "EVENTO"
         excel_data = json_to_excel(archivos, tipo_factura)
-        st.download_button("⬇️ Descargar Excel", data=excel_data, file_name=f"RIPS_Consolidado_{tipo_factura}.xlsx")
+        st.download_button(
+            "⬇️ Descargar Excel",
+            data=excel_data,
+            file_name=f"RIPS_Consolidado_{tipo_factura}.xlsx"
+        )
 
 elif "Excel ➜ JSON" in modo:
     archivo_excel = st.file_uploader("📂 Selecciona archivo Excel", type=["xlsx"])
@@ -237,18 +236,19 @@ elif "Excel ➜ JSON" in modo:
         tipo_factura = "PGP" if "PGP" in modo else "EVENTO"
         resultado = excel_to_json(archivo_excel, tipo_factura, nit_obligado)
 
-        if resultado:
-            if resultado["tipo"] == "único":
-                st.download_button("⬇️ Descargar JSON", data=resultado["contenido"].encode("utf-8"), file_name=resultado["nombre"])
-            elif resultado["tipo"] == "zip":
-                buffer = BytesIO()
-                with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zipf:
-                    for nombre, contenido in resultado["contenido"].items():
-                        zipf.writestr(nombre, contenido)
-                buffer.seek(0)
-                st.download_button("⬇️ Descargar ZIP de JSONs", data=buffer, file_name="RIPS_Evento_JSONs.zip")
+    if resultado:
+        if resultado["tipo"] == "único":
+            st.download_button("⬇️ Descargar JSON", data=resultado["contenido"].encode("utf-8"), file_name=resultado["nombre"])
+        elif resultado["tipo"] == "zip":
+            buffer = BytesIO()
+            with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zipf:
+                for nombre, contenido in resultado["contenido"].items():
+                    zipf.writestr(nombre, contenido)
+            buffer.seek(0)
+            st.download_button("⬇️ Descargar ZIP de JSONs", data=buffer, file_name="RIPS_Evento_JSONs.zip")
 
 # ------------------- LOGOUT -------------------
 st.sidebar.title("👤 Usuario")
 st.sidebar.write(f"Bienvenido, {st.session_state['name']}")
-authenticator.logout("🚪 Cerrar sesión", "sidebar")
+authenticator.logout(" Cerrar sesión", "sidebar")
+
