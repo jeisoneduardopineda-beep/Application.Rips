@@ -75,7 +75,7 @@ if os.path.exists(LOGO_PATH):
 if os.path.exists(LOGO_PATH):
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.image(LOGO_PATH, use_column_width=True)
+        st.image(logo_path, use_container_width=True)
 else:
     st.info("Sube el logo en 'assets/medidatarips_logo.png' para verlo aquí.")
 
@@ -298,6 +298,7 @@ elif "Excel ➜ JSON" in modo:
                     zipf.writestr(nombre, contenido)
             buffer.seek(0)
             st.download_button("⬇️ Descargar ZIP de JSONs", data=buffer, file_name="RIPS_Evento_JSONs.zip")
+
 
 
 
