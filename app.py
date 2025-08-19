@@ -72,7 +72,7 @@ CAMPOS_NUMERICOS = [
 CAMPOS_CODIGOS = [
     "tipoUsuario", "viaIngresoServicioSalud", "modalidadGrupoServicioTecSal",
     "grupoServicios", "finalidadTecnologiaSalud", "conceptoRecaudo",
-    "tipoMedicamento", "tipoOS", "codZonaTerritorialResidencia","codMunicipioResidencia",
+    "tipoMedicamento", "tipoOS", "codZonaTerritorialResidencia", "codMunicipioResidencia",
     "codPaisResidencia", "codPaisOrigen",
 ]
 
@@ -257,4 +257,5 @@ elif "Excel ➜ JSON" in modo:
                     zipf.writestr(nombre, contenido)
             buffer.seek(0)
             st.download_button("⬇️ Descargar ZIP de JSONs", data=buffer, file_name="RIPS_Evento_JSONs.zip")
+
 
