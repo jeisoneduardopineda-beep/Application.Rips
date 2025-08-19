@@ -76,9 +76,6 @@ if os.path.exists(LOGO_PATH):
     st.image(LOGO_PATH, use_container_width=True)
 else:
     st.info("Sube el archivo de logo 'medidatarips_logo.png' en la carpeta de la app.")
-else:
-    st.info("Sube el archivo de logo 'medidatarips_logo.png' en la carpeta de la app.")
-
 st.title(f"🔄 Bienvenido {name}")
 
 # ===========================================================
@@ -298,6 +295,7 @@ elif "Excel ➜ JSON" in modo:
                     zipf.writestr(nombre, contenido)
             buffer.seek(0)
             st.download_button("⬇️ Descargar ZIP de JSONs", data=buffer, file_name="RIPS_Evento_JSONs.zip")
+
 
 
 
