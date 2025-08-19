@@ -1,64 +1,94 @@
-
-import streamlit as st
 import os
 import json
 import zipfile
 from io import BytesIO
 
 import pandas as pd
+import streamlit as st
 import yaml
 from yaml.loader import SafeLoader
-import streamlit_authenticator as stauth   # 👈 IMPORTANTE
+import streamlit_authenticator as stauth
+from packaging import version
 
-# ------------------- CARGAR CONFIGURACIÓN DE LOGIN -------------------
-with open('config.yaml') as file:
-    config = yaml.load(file, Loader=SafeLoader)
+# -------------------------------------------------------------------
+# Config básica de la app SIEMPRE al inicio
+# -------------------------------------------------------------------
+st.set_page_config(page_title="Transformador RIPS PGP & EVENTO", layout="centered")
 
-# ------------------- CREAR OBJETO DE AUTENTICACIÓN -------------------
-authenticator = stauth.Authenticate(
-    credentials=config['credentials'],
-    cookie_name=config['cookie']['name'],
-    key=config['cookie']['key'],
-    expiry_days=config['cookie']['expiry_days']
-)
+# -------------------------------------------------------------------
+# Cargar config.yaml
+# -------------------------------------------------------------------
+with open("config.yaml", "r", encoding="utf-8") as f:
+    config = yaml.load(f, Loader=SafeLoader)
 
-# ------------------- FORMULARIO DE LOGIN -------------------
-name, authentication_status, username = authenticator.login(
-    form_name="🔐 Iniciar sesión",
-    location="main"
-)
+# Normaliza usernames a minúsculas (evita fallos por mayúsculas)
+if "credentials" in config and "usernames" in config["credentials"]:
+    config["credentials"]["usernames"] = {
+        str(k).lower(): v for k, v in config["credentials"]["usernames"].items()
+    }
 
-# ------------------- VALIDAR ESTADO DE AUTENTICACIÓN -------------------
+# -------------------------------------------------------------------
+# Autenticación compatible con 0.2.x y 0.3.x
+# -------------------------------------------------------------------
+sa_ver = getattr(stauth, "__version__", "0.2.3")
+
+if version.parse(sa_ver) >= version.parse("0.3.0"):
+    # 0.3.x acepta keywords y usa cookie_expiry_days
+    authenticator = stauth.Authenticate(
+        credentials=config["credentials"],
+        cookie_name=config["cookie"]["name"],
+        key=config["cookie"]["key"],
+        cookie_expiry_days=config["cookie"]["expiry_days"],
+    )
+    name, authentication_status, username = authenticator.login(
+        form_name="🔐 Iniciar sesión",
+        location="main",
+    )
+else:
+    # 0.2.x SOLO posicional (y quinto parámetro: preauthorized emails)
+    authenticator = stauth.Authenticate(
+        config["credentials"],
+        config["cookie"]["name"],
+        config["cookie"]["key"],
+        config["cookie"]["expiry_days"],
+        config.get("preauthorized", {}).get("emails", []),
+    )
+    name, authentication_status, username = authenticator.login("🔐 Iniciar sesión", "main")
+
+# -------------------------------------------------------------------
+# Estados de login
+# -------------------------------------------------------------------
 if authentication_status is False:
-    st.error("❌ Usuario o contraseña incorrectos")
+    st.error("❌ Usuario o contraseña incorrectos.")
+    st.stop()
 elif authentication_status is None:
     st.warning("Por favor ingresa tus credenciales.")
     st.stop()
-else:
-    st.success(f"Bienvenido {name} 👋")
 
-# ------------------- APP PRINCIPAL -------------------
-st.set_page_config(page_title="Transformador RIPS PGP & EVENTO", layout="centered")
-st.title(f"🔄 Bienvenido {st.session_state['name']}")
+# Autenticado
+authenticator.logout("🚪 Cerrar sesión", "sidebar")
+st.title(f"🔄 Bienvenido {name}")
 
-# ------------------- FUNCIONES -------------------
+# -------------------------------------------------------------------
+# Conversor RIPS PGP / Evento
+# -------------------------------------------------------------------
 TIPOS_SERVICIOS = [
     "consultas", "procedimientos", "hospitalizacion", "hospitalizaciones",
-    "urgencias", "reciennacidos", "medicamentos", "otrosservicios", "otrosServicios"
+    "urgencias", "reciennacidos", "medicamentos", "otrosservicios", "otrosServicios",
 ]
 
 CAMPOS_NUMERICOS = [
     "consecutivo", "codServicio", "vrServicio", "valorPagoModerador",
     "concentracionMedicamento", "unidadMedida", "unidadMinDispensa",
     "cantidadMedicamento", "diasTratamiento", "vrUnitMedicamento",
-    "idMIPRES", "cantidadOS", "vrUnitOS"
+    "idMIPRES", "cantidadOS", "vrUnitOS",
 ]
 
 CAMPOS_CODIGOS = [
     "tipoUsuario", "viaIngresoServicioSalud", "modalidadGrupoServicioTecSal",
     "grupoServicios", "finalidadTecnologiaSalud", "conceptoRecaudo",
     "tipoMedicamento", "tipoOS", "codZonaTerritorialResidencia",
-    "codPaisResidencia", "codPaisOrigen"
+    "codPaisResidencia", "codPaisOrigen",
 ]
 
 def limpiar_valores(d):
@@ -202,18 +232,18 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
 
             salida_archivos[f"{factura}_RIPS.json"] = json.dumps(salida_json, ensure_ascii=False, indent=2)
 
-    return {
-        "tipo": "zip",
-        "contenido": salida_archivos
-    }
+    return {"tipo": "zip", "contenido": salida_archivos}
 
-# ------------------- INTERFAZ DE USUARIO -------------------
-st.title("📄 Transformador RIPS: PGP y EVENTO")
+# -------------------------------------------------------------------
+# UI
+# -------------------------------------------------------------------
+st.subheader("📄 Transformador RIPS: PGP y EVENTO")
 
-modo = st.radio("Selecciona el tipo de conversión:", [
-    "📥 JSON ➜ Excel (PGP)", "📤 Excel ➜ JSON (PGP)",
-    "📥 JSON ➜ Excel (Evento)", "📤 Excel ➜ JSON (Evento)"
-])
+modo = st.radio(
+    "Selecciona el tipo de conversión:",
+    ["📥 JSON ➜ Excel (PGP)", "📤 Excel ➜ JSON (PGP)",
+     "📥 JSON ➜ Excel (Evento)", "📤 Excel ➜ JSON (Evento)"]
+)
 
 nit_obligado = st.text_input("🔢 NIT del Obligado a Facturar", value="900364721")
 
@@ -224,15 +254,12 @@ if "JSON ➜ Excel" in modo:
     if archivos and st.button("🚀 Convertir a Excel"):
         tipo_factura = "PGP" if "PGP" in modo else "EVENTO"
         excel_data = json_to_excel(archivos, tipo_factura)
-        st.download_button(
-            "⬇️ Descargar Excel",
-            data=excel_data,
-            file_name=f"RIPS_Consolidado_{tipo_factura}.xlsx"
-        )
+        st.download_button("⬇️ Descargar Excel", data=excel_data, file_name=f"RIPS_Consolidado_{tipo_factura}.xlsx")
 
 elif "Excel ➜ JSON" in modo:
     archivo_excel = st.file_uploader("📂 Selecciona archivo Excel", type=["xlsx"])
     if archivo_excel and st.button("🚀 Convertir a JSON"):
+        tipo_factura = "PGP" si "PGP" en modo else "EVENTO"  # ← si te marca error, cambia 'si' por 'if' (teclado ES)
         tipo_factura = "PGP" if "PGP" in modo else "EVENTO"
         resultado = excel_to_json(archivo_excel, tipo_factura, nit_obligado)
 
@@ -247,8 +274,5 @@ elif "Excel ➜ JSON" in modo:
             buffer.seek(0)
             st.download_button("⬇️ Descargar ZIP de JSONs", data=buffer, file_name="RIPS_Evento_JSONs.zip")
 
-# ------------------- LOGOUT -------------------
-st.sidebar.title("👤 Usuario")
-st.sidebar.write(f"Bienvenido, {st.session_state['name']}")
-authenticator.logout(" Cerrar sesión", "sidebar")
+
 
