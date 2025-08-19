@@ -2,19 +2,19 @@ credentials:
   usernames:
     jeison:
       name: "Jeison Eduardo"
-      password: "$2b$12$y7qjIpxh...."
+      password: "$2b$12$gwU.PE.HRWCXa8a/opsMFO7TiE7hAwgje8W2s.Vj8IqYFEB/444aa"
 
     operador:
       name: "Operador de Facturación"
-      password: "$2b$12$AFl9oH...."
+      password: "$2b$12$V/wVr.C1YViQimFG9J13YuOVBzYJBhXOvvsSGcLN0hP51xntsVKKO"
 
     auditor:
       name: "Auditor Interno"
-      password: "$2b$12$PQn3fz...."
+      password: "$2b$12$MVhuw9lpY.trMd9omc8mb.NdDGju0Y1QpYelrU47n7gFIanw97JQe"
 
     admin:
       name: "Administrador General"
-      password: "$2b$12$KLvXhH...."
+      password: "$2b$12$FFKYrJiCSS15pjJe.o8wM.9zNbsPxBCCB9tEwDtj7xlKSviC289XS"
 
 cookie:
   name: rips_cookie_demo
