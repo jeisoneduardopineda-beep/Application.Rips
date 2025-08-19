@@ -1,4 +1,4 @@
-# app.py
+# app.py — compatible con streamlit-authenticator 0.2.3 (solo posicional)
 import os
 import json
 import zipfile
@@ -9,57 +9,40 @@ import streamlit as st
 import yaml
 from yaml.loader import SafeLoader
 import streamlit_authenticator as stauth
-from packaging import version
 
-# -----------------------------------------------------------
-# Config de la página (SIEMPRE primero)
-# -----------------------------------------------------------
+# -------------------------------------------------------------------
+# Config de página
+# -------------------------------------------------------------------
 st.set_page_config(page_title="Transformador RIPS PGP & EVENTO", layout="centered")
 
-# -----------------------------------------------------------
+# -------------------------------------------------------------------
 # Cargar config.yaml
-# -----------------------------------------------------------
+# -------------------------------------------------------------------
 with open("config.yaml", "r", encoding="utf-8") as f:
     config = yaml.load(f, Loader=SafeLoader)
 
-# Normaliza usernames a minúsculas
+# normaliza usernames a minúsculas (evita fallos por mayúsculas)
 if "credentials" in config and "usernames" in config["credentials"]:
     config["credentials"]["usernames"] = {
         str(k).lower(): v for k, v in config["credentials"]["usernames"].items()
     }
 
-# -----------------------------------------------------------
-# Autenticación (compatible 0.2.x y 0.3.x)
-#   - 0.3.x -> usa cookie_expiry_days (keyword)
-#   - 0.2.x -> SOLO posicionales y NO acepta expiry_days como keyword
-# -----------------------------------------------------------
-sa_ver = getattr(stauth, "__version__", "0.2.3")
+# -------------------------------------------------------------------
+# Autenticación (0.2.3)  → SOLO POSICIONAL
+# Firma: Authenticate(credentials, cookie_name, key, cookie_expiry_days, preauthorized)
+# -------------------------------------------------------------------
+authenticator = stauth.Authenticate(
+    config["credentials"],
+    config["cookie"]["name"],
+    config["cookie"]["key"],
+    config["cookie"]["expiry_days"],
+    config.get("preauthorized", {}).get("emails", []),
+)
+name, authentication_status, username = authenticator.login("🔐 Iniciar sesión", "main")
 
-if version.parse(sa_ver) >= version.parse("0.3.0"):
-    # Versión nueva 0.3.x
-    authenticator = stauth.Authenticate(
-        credentials=config["credentials"],
-        cookie_name=config["cookie"]["name"],
-        key=config["cookie"]["key"],
-        cookie_expiry_days=config["cookie"]["expiry_days"],  # <- correcto en 0.3.x
-    )
-    name, authentication_status, username = authenticator.login(
-        form_name="🔐 Iniciar sesión", location="main"
-    )
-else:
-    # Versión 0.2.x (posicional; sin keywords de expiración)
-    authenticator = stauth.Authenticate(
-        config["credentials"],
-        config["cookie"]["name"],
-        config["cookie"]["key"],
-        config["cookie"]["expiry_days"],
-        config.get("preauthorized", {}).get("emails", []),
-    )
-    name, authentication_status, username = authenticator.login("🔐 Iniciar sesión", "main")
-
-# -----------------------------------------------------------
+# -------------------------------------------------------------------
 # Estados de login
-# -----------------------------------------------------------
+# -------------------------------------------------------------------
 if authentication_status is False:
     st.error("❌ Usuario o contraseña incorrectos.")
     st.stop()
@@ -204,7 +187,6 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
 
             for _, usuario in usuarios_factura.iterrows():
                 usuario_dict = usuario.to_dict()
-                doc = usuario_dict.get("numDocumentoIdentificacion") o r usuario_dict.get("documento_usuario")
                 doc = usuario_dict.get("numDocumentoIdentificacion") or usuario_dict.get("documento_usuario")
                 usuario_limpio = limpiar_valores(usuario_dict)
                 usuario_limpio.pop("archivo_origen", None)
@@ -237,9 +219,9 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
 
     return {"tipo": "zip", "contenido": salida_archivos}
 
-# -----------------------------------------------------------
+# -------------------------------------------------------------------
 # UI
-# -----------------------------------------------------------
+# -------------------------------------------------------------------
 st.subheader("📄 Transformador RIPS: PGP y EVENTO")
 
 modo = st.radio(
