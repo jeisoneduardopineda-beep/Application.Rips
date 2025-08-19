@@ -1,11 +1,25 @@
 credentials:
   usernames:
+    jeison:
+      name: "Jeison Eduardo"
+      password: "$2b$12$y7qjIpxh...."
+
+    operador:
+      name: "Operador de Facturación"
+      password: "$2b$12$AFl9oH...."
+
+    auditor:
+      name: "Auditor Interno"
+      password: "$2b$12$PQn3fz...."
+
     admin:
-      name: Jeisson Eduardo
-      # ⬇️ Reemplaza este hash por el que generes con hash.py si quieres otra clave
-      password: "$2b$12$PWb1bkGeHYRX2YInizX2P.4.4.fkxCScxAuZzLnz3mTwrFW.qqYEC"
+      name: "Administrador General"
+      password: "$2b$12$KLvXhH...."
 
 cookie:
-  name: my_cookie
-  key: some_signature_key
-  expiry_days: 3
+  name: rips_cookie_demo
+  key: clave_unica_demo
+  expiry_days: 30
+
+preauthorized:
+  emails: []
