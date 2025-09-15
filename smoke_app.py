@@ -1,6 +1,9 @@
 # smoke_app.py — prueba de vida del entorno
 import os, sys, platform, subprocess, json
 import streamlit as st
+print("BOOT: iniciando app.py")  # se ve en Logs al ejecutar
+import sys; print("BOOT: python", sys.version)
+
 
 st.title("Smoke test ✅")
 
