@@ -1,5 +1,6 @@
-# app.py — endurecido para despliegue y compatible con streamlit-authenticator 0.2.3 (firma posicional)
+# app.py — endurecido para despliegue y compatible con streamlit-authenticator 0.3.3
 import os
+import sys
 import json
 import zipfile
 from io import BytesIO
@@ -31,28 +32,32 @@ st.markdown("""
 
 def render_logo_left(path: str, height_px: int = 120):
     """Muestra el logo 100% a la izquierda usando HTML seguro con base64."""
-    with open(path, "rb") as f:
-        b64 = base64.b64encode(f.read()).decode()
-    st.markdown(
-        f"""
-        <div style="display:flex; align-items:center; justify-content:flex-start;">
-            <img src="data:image/png;base64,{b64}" alt="Logo MedidataRIPS" style="height:{height_px}px;">
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    if not os.path.exists(path):
+        return
+    try:
+        with open(path, "rb") as f:
+            b64 = base64.b64encode(f.read()).decode()
+        st.markdown(
+            f"""
+            <div style="display:flex; align-items:center; justify-content:flex-start;">
+                <img src="data:image/png;base64,{b64}" alt="Logo MedidataRIPS" style="height:{height_px}px;">
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+    except Exception as e:
+        st.warning(f"No se pudo cargar el logo: {e}")
 
 # -------------------------------------------------------------------
-# Carga robusta de configuración y autenticador
+# Autenticación
 #   1) Primero intenta st.secrets (ideal en la nube)
 #   2) Si no hay, usa config.yaml
 #   3) Valida claves mínimas y maneja errores en UI
 # -------------------------------------------------------------------
-# --- Import robusto de authenticator (evita crash por falta de paquete/versión) ---
 try:
     import streamlit_authenticator as stauth
 except Exception as e:
-    st.error("No pude importar 'streamlit_authenticator'. Revisa tu requirements.txt (usa streamlit-authenticator==0.2.3).")
+    st.error("No pude importar 'streamlit_authenticator'. Asegura streamlit-authenticator==0.3.3 en requirements.txt.")
     st.exception(e)
     st.stop()
 
@@ -69,8 +74,7 @@ try:
         if "preauthorized" in st.secrets:
             config["preauthorized"] = dict(st.secrets["preauthorized"])
 except Exception:
-    # si st.secrets no está disponible o no es indexable, seguimos a YAML
-    pass
+    pass  # seguimos a YAML
 
 # 2) config.yaml local
 if config is None:
@@ -96,17 +100,17 @@ if "usernames" in config.get("credentials", {}):
         str(k).lower(): v for k, v in config["credentials"]["usernames"].items()
     }
 
-# --- Instanciar Authenticate con firma 0.2.3 (solo posicional) ---
+# --- Instanciar Authenticate (firma con keywords de 0.3.3) ---
 try:
     authenticator = stauth.Authenticate(
-        config["credentials"],
-        config["cookie"]["name"],
-        config["cookie"]["key"],
-        config["cookie"]["expiry_days"],
-        config.get("preauthorized", {}).get("emails", []),
+        credentials=config["credentials"],
+        cookie_name=config["cookie"]["name"],
+        cookie_key=config["cookie"]["key"],
+        cookie_expiry_days=config["cookie"]["expiry_days"],
+        preauthorized=config.get("preauthorized", {})
     )
-except TypeError as e:
-    st.error("La versión de 'streamlit-authenticator' no coincide con la firma esperada. Fija streamlit-authenticator==0.2.3.")
+except Exception as e:
+    st.error("No pude instanciar Authenticate. Verifica llaves de 'cookie' y versión 0.3.3.")
     st.exception(e)
     st.stop()
 
@@ -130,10 +134,7 @@ if os.path.exists(LOGO_PATH):
     st.sidebar.image(LOGO_PATH, use_container_width=True)
 
 # --- LOGO arriba totalmente a la izquierda ---
-if os.path.exists(LOGO_PATH):
-    render_logo_left(LOGO_PATH, height_px=150)
-else:
-    st.info("Sube el archivo de logo 'medidatarips_logo.png' en la carpeta de la app.")
+render_logo_left(LOGO_PATH, height_px=150)
 
 st.title(f"🔄 Bienvenido {name}")
 
@@ -162,7 +163,6 @@ CAMPOS_CODIGOS = [
 def limpiar_valores(d):
     limpio = {}
     for k, v in d.items():
-        # pd.isna falla si v es dict/list → proteger
         try:
             es_na = pd.isna(v)
         except Exception:
@@ -171,27 +171,26 @@ def limpiar_valores(d):
             limpio[k] = None
             continue
 
-        # --- Regla específica: codMunicipioResidencia (siempre string de 5 dígitos) ---
+        # codMunicipioResidencia como string 5 dígitos
         if k == "codMunicipioResidencia":
             s = str(v).strip()
-            s = re.sub(r"\.0$", "", s)     # quita residuos tipo "5837.0" de Excel
-            s = re.sub(r"\D", "", s)       # deja solo dígitos
+            s = re.sub(r"\.0$", "", s)
+            s = re.sub(r"\D", "", s)
             limpio[k] = s.zfill(5) if s else None
             continue
 
-        # --- Resto de campos ---
         if k in CAMPOS_NUMERICOS:
             try:
-                limpio[k] = int(v) if float(v) == int(v) else float(v)
+                fv = float(v)
+                limpio[k] = int(fv) if fv.is_integer() else fv
             except Exception:
                 limpio[k] = None
         elif k in CAMPOS_CODIGOS:
-            # códigos genéricos (mínimo 2 dígitos)
             s = str(v).strip()
             s = re.sub(r"\.0$", "", s)
-            limpio[k] = s.zfill(2)
+            limpio[k] = s.zfill(2) if s else None
         else:
-            limpio[k] = str(v).strip() if not isinstance(v, str) else v.strip()
+            limpio[k] = v.strip() if isinstance(v, str) else str(v).strip()
     return limpio
 
 def json_to_excel(files, tipo_factura):
@@ -221,11 +220,14 @@ def json_to_excel(files, tipo_factura):
                         datos[tipo_normalizado].append(reg)
 
     output = BytesIO()
-    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+    # Usamos openpyxl (ya lo tienes en requirements)
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
         for tipo, registros in datos.items():
             if registros:
                 df = pd.DataFrame(registros)
-                df.to_excel(writer, sheet_name=tipo.capitalize(), index=False)
+                # Evita hojas >31 caracteres
+                sheet = tipo.capitalize()[:31]
+                df.to_excel(writer, sheet_name=sheet, index=False)
     output.seek(0)
     return output
 
@@ -319,7 +321,7 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
 
             salida_archivos[f"{factura}_RIPS.json"] = json.dumps(salida_json, ensure_ascii=False, indent=2)
 
-    return {"tipo": "zip", "contenido": salida_archivos}
+        return {"tipo": "zip", "contenido": salida_archivos}
 
 # -------------------------------------------------------------------
 # UI
@@ -346,6 +348,7 @@ if "JSON ➜ Excel" in modo:
 elif "Excel ➜ JSON" in modo:
     archivo_excel = st.file_uploader("📂 Selecciona archivo Excel", type=["xlsx"])
     if archivo_excel and st.button("🚀 Convertir a JSON"):
+        tipo_factura = "PGP" si_no := ("PGP" in modo)
         tipo_factura = "PGP" if "PGP" in modo else "EVENTO"
         resultado = excel_to_json(archivo_excel, tipo_factura, nit_obligado)
 
@@ -359,3 +362,5 @@ elif "Excel ➜ JSON" in modo:
                     zipf.writestr(nombre, contenido)
             buffer.seek(0)
             st.download_button("⬇️ Descargar ZIP de JSONs", data=buffer, file_name="RIPS_Evento_JSONs.zip")
+
+
