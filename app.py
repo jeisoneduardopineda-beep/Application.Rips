@@ -348,19 +348,24 @@ if "JSON ➜ Excel" in modo:
 elif "Excel ➜ JSON" in modo:
     archivo_excel = st.file_uploader("📂 Selecciona archivo Excel", type=["xlsx"])
     if archivo_excel and st.button("🚀 Convertir a JSON"):
-        tipo_factura = "PGP" si_no := ("PGP" in modo)
         tipo_factura = "PGP" if "PGP" in modo else "EVENTO"
         resultado = excel_to_json(archivo_excel, tipo_factura, nit_obligado)
 
     if resultado:
         if resultado["tipo"] == "único":
-            st.download_button("⬇️ Descargar JSON", data=resultado["contenido"].encode("utf-8"), file_name=resultado["nombre"])
+            st.download_button(
+                "⬇️ Descargar JSON",
+                data=resultado["contenido"].encode("utf-8"),
+                file_name=resultado["nombre"]
+            )
         elif resultado["tipo"] == "zip":
             buffer = BytesIO()
             with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zipf:
                 for nombre, contenido in resultado["contenido"].items():
                     zipf.writestr(nombre, contenido)
             buffer.seek(0)
-            st.download_button("⬇️ Descargar ZIP de JSONs", data=buffer, file_name="RIPS_Evento_JSONs.zip")
-
-
+            st.download_button(
+                "⬇️ Descargar ZIP de JSONs",
+                data=buffer,
+                file_name="RIPS_Evento_JSONs.zip"
+            )
