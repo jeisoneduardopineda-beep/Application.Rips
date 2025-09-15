@@ -1,4 +1,4 @@
-# app.py — compatible con streamlit-authenticator 0.2.3 (solo posicional)
+# app.py — endurecido para despliegue y compatible con streamlit-authenticator 0.2.3 (firma posicional)
 import os
 import json
 import zipfile
@@ -9,7 +9,6 @@ import pandas as pd
 import streamlit as st
 import yaml
 from yaml.loader import SafeLoader
-import streamlit_authenticator as stauth
 
 # -------------------------------------------------------------------
 # Config de página + LOGO
@@ -20,7 +19,7 @@ page_icon = LOGO_PATH if os.path.exists(LOGO_PATH) else None
 st.set_page_config(
     page_title="Transformador RIPS PGP & EVENTO",
     layout="centered",
-    page_icon=page_icon  # favicon con el logo si existe
+    page_icon=page_icon
 )
 
 # (Opcional) Ajuste visual para que el logo “respire” mejor arriba
@@ -30,7 +29,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-def render_logo_left(path:str, height_px:int = 120):
+def render_logo_left(path: str, height_px: int = 120):
     """Muestra el logo 100% a la izquierda usando HTML seguro con base64."""
     with open(path, "rb") as f:
         b64 = base64.b64encode(f.read()).decode()
@@ -44,28 +43,73 @@ def render_logo_left(path:str, height_px:int = 120):
     )
 
 # -------------------------------------------------------------------
-# Cargar config.yaml
+# Carga robusta de configuración y autenticador
+#   1) Primero intenta st.secrets (ideal en la nube)
+#   2) Si no hay, usa config.yaml
+#   3) Valida claves mínimas y maneja errores en UI
 # -------------------------------------------------------------------
-with open("config.yaml", "r", encoding="utf-8") as f:
-    config = yaml.load(f, Loader=SafeLoader)
+# --- Import robusto de authenticator (evita crash por falta de paquete/versión) ---
+try:
+    import streamlit_authenticator as stauth
+except Exception as e:
+    st.error("No pude importar 'streamlit_authenticator'. Revisa tu requirements.txt (usa streamlit-authenticator==0.2.3).")
+    st.exception(e)
+    st.stop()
+
+# --- Cargar config desde secrets o YAML ---
+config = None
+
+# 1) st.secrets (recomendado en despliegue)
+try:
+    if "credentials" in st.secrets and "cookie" in st.secrets:
+        config = {
+            "credentials": dict(st.secrets["credentials"]),
+            "cookie": dict(st.secrets["cookie"]),
+        }
+        if "preauthorized" in st.secrets:
+            config["preauthorized"] = dict(st.secrets["preauthorized"])
+except Exception:
+    # si st.secrets no está disponible o no es indexable, seguimos a YAML
+    pass
+
+# 2) config.yaml local
+if config is None:
+    try:
+        with open("config.yaml", "r", encoding="utf-8") as f:
+            config = yaml.load(f, Loader=SafeLoader)
+    except FileNotFoundError:
+        st.error("No encuentro 'config.yaml' y no hay 'st.secrets'. Sube uno de los dos.")
+        st.stop()
+    except Exception as e:
+        st.error("Error leyendo 'config.yaml'. Revisa la sintaxis YAML.")
+        st.exception(e)
+        st.stop()
+
+# 3) Validación mínima para evitar KeyError luego
+if "credentials" not in config or "cookie" not in config:
+    st.error("Config inválida. Faltan secciones 'credentials' o 'cookie'.")
+    st.stop()
 
 # normaliza usernames a minúsculas (evita fallos por mayúsculas)
-if "credentials" in config and "usernames" in config["credentials"]:
+if "usernames" in config.get("credentials", {}):
     config["credentials"]["usernames"] = {
         str(k).lower(): v for k, v in config["credentials"]["usernames"].items()
     }
 
-# -------------------------------------------------------------------
-# Autenticación (0.2.3)  → SOLO POSICIONAL
-# Firma: Authenticate(credentials, cookie_name, key, cookie_expiry_days, preauthorized)
-# -------------------------------------------------------------------
-authenticator = stauth.Authenticate(
-    config["credentials"],
-    config["cookie"]["name"],
-    config["cookie"]["key"],
-    config["cookie"]["expiry_days"],
-    config.get("preauthorized", {}).get("emails", []),
-)
+# --- Instanciar Authenticate con firma 0.2.3 (solo posicional) ---
+try:
+    authenticator = stauth.Authenticate(
+        config["credentials"],
+        config["cookie"]["name"],
+        config["cookie"]["key"],
+        config["cookie"]["expiry_days"],
+        config.get("preauthorized", {}).get("emails", []),
+    )
+except TypeError as e:
+    st.error("La versión de 'streamlit-authenticator' no coincide con la firma esperada. Fija streamlit-authenticator==0.2.3.")
+    st.exception(e)
+    st.stop()
+
 name, authentication_status, username = authenticator.login("🔐 Iniciar sesión", "main")
 
 # -------------------------------------------------------------------
@@ -118,7 +162,12 @@ CAMPOS_CODIGOS = [
 def limpiar_valores(d):
     limpio = {}
     for k, v in d.items():
-        if pd.isna(v):
+        # pd.isna falla si v es dict/list → proteger
+        try:
+            es_na = pd.isna(v)
+        except Exception:
+            es_na = False
+        if es_na:
             limpio[k] = None
             continue
 
@@ -310,13 +359,3 @@ elif "Excel ➜ JSON" in modo:
                     zipf.writestr(nombre, contenido)
             buffer.seek(0)
             st.download_button("⬇️ Descargar ZIP de JSONs", data=buffer, file_name="RIPS_Evento_JSONs.zip")
-
-
-
-
-
-
-
-
-
-
