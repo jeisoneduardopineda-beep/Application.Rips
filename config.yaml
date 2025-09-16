@@ -14,7 +14,7 @@
 
   [credentials.usernames.admin]
   name = "Administrador General"
-  password = "$2b$12$FFKYr3iC1S5S1pJe.o8wL9zNbPsBCC9BtEtyJ7k1kSVciC289XS"
+  password = "$2b$12$8byjuHS/ckfnoYPPWT9RGusFD6vnOtEAsqXgB6bz1/4.3Rq3yzdeC"
 
 [cookie]
 name = "rips_cookie_demo"
