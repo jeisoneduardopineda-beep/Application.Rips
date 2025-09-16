@@ -1,0 +1,25 @@
+[credentials]
+
+  [credentials.usernames.jeison]
+  name = "Jeison Eduardo"
+  password = "$2b$12$gWU.PE.HRMXcXa8a/opsMFO7TiE7hAwgje8Wz5.Vj81qYFEB/444aa"
+
+  [credentials.usernames.operador]
+  name = "Operador de Facturación"
+  password = "$2b$12$/vWr.C1YiVQimFG913YuOvBZyJBhXOvv5GcLN0hP51xntsVKkO"
+
+  [credentials.usernames.auditor]
+  name = "Auditor Interno"
+  password = "$2b$12$FWhuw91pY.trH9d0mcBmb.Nd0GjJuvdI0YcYelrU47n7gF1am97tQe"
+
+  [credentials.usernames.admin]
+  name = "Administrador General"
+  password = "$2b$12$FFKYr3iC1S5S1pJe.o8wL9zNbPsBCC9BtEtyJ7k1kSVciC289XS"
+
+[cookie]
+name = "rips_cookie_demo"
+key = "clave_unica_demo"
+expiry_days = 30
+
+[preauthorized]
+emails = []
