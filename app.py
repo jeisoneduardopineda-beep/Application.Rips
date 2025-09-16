@@ -9,7 +9,7 @@ import pandas as pd
 import streamlit as st
 import yaml
 from yaml.loader import SafeLoader
-import inspect
+import inspect as _inspect
 from collections.abc import Mapping
 
 # -------------------------------------------------------------------
@@ -105,13 +105,13 @@ if "usernames" in config.get("credentials", {}):
         str(k).strip().lower(): v for k, v in config["credentials"]["usernames"].items()
     }
 
-# Instanciación sin duplicar widgets (detecta firma real)
+# Instanciación evitando líos de versión
 preauth_cfg  = config.get("pre_authorized") or config.get("preauthorized") or {}
 emails_list  = preauth_cfg.get("emails", []) if isinstance(preauth_cfg, dict) else preauth_cfg
 
 try:
-    params = inspect.signature(stauth.Authenticate.__init__).parameters
-    if "pre_authorized" in params:
+    _params = list(_inspect.signature(stauth.Authenticate.__init__).parameters.keys())
+    if "pre_authorized" in _params:
         authenticator = stauth.Authenticate(
             credentials=config["credentials"],
             cookie_name=config["cookie"]["name"],
@@ -119,7 +119,7 @@ try:
             cookie_expiry_days=config["cookie"]["expiry_days"],
             pre_authorized=preauth_cfg,
         )
-    elif "preauthorized" in params:
+    elif "preauthorized" in _params:
         authenticator = stauth.Authenticate(
             credentials=config["credentials"],
             cookie_name=config["cookie"]["name"],
@@ -141,7 +141,14 @@ except Exception as e:
     st.exception(e)
     st.stop()
 
-name, authentication_status, username = authenticator.login(form_name="🔐 Iniciar sesión", location="main")
+# ----- Login / Logout compatibles con varias firmas -----
+_login_params = list(_inspect.signature(authenticator.login).parameters.keys())
+if _login_params and _login_params[0] == "location":
+    # API antigua: login(location, form_name, ...)
+    name, authentication_status, username = authenticator.login("main", "🔐 Iniciar sesión")
+else:
+    # API común/reciente: login(form_name, location, ...)
+    name, authentication_status, username = authenticator.login("🔐 Iniciar sesión", "main")
 
 # -------------------------------------------------------------------
 # Estados de login
@@ -153,8 +160,14 @@ elif authentication_status is None:
     st.warning("Por favor ingresa tus credenciales.")
     st.stop()
 
-# Autenticado
-authenticator.logout(button_name="🚪 Cerrar sesión", location="sidebar")
+# Autenticado -> logout robusto
+_logout_params = list(_inspect.signature(authenticator.logout).parameters.keys())
+if _logout_params and _logout_params[0] == "button_name":
+    authenticator.logout("🚪 Cerrar sesión", "sidebar")
+elif "location" in _logout_params:
+    authenticator.logout(location="sidebar")
+else:
+    authenticator.logout("🚪 Cerrar sesión")
 
 # Logo en sidebar + top
 if os.path.exists(LOGO_PATH):
@@ -282,6 +295,7 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
             usuario_limpio.pop("archivo_origen", None)
             usuario_limpio.pop("numFactura", None)
 
+        # construir servicios por usuario
             servicios_dict = {}
             for tipo in tipos_servicios:
                 df_tipo = dataframes[tipo]
@@ -372,7 +386,7 @@ if "JSON ➜ Excel" in modo:
 
 elif "Excel ➜ JSON" in modo:
     archivo_excel = st.file_uploader("📂 Selecciona archivo Excel", type=["xlsx"])
-    if archivo_excel and st.button("🚀 Convertir a JSON"):  # <- and, no y
+    if archivo_excel and st.button("🚀 Convertir a JSON"):
         tipo_factura = "PGP" if "PGP" in modo else "EVENTO"
         resultado = excel_to_json(archivo_excel, tipo_factura, nit_obligado)
 
@@ -394,5 +408,4 @@ elif "Excel ➜ JSON" in modo:
                 data=buffer,
                 file_name="RIPS_Evento_JSONs.zip"
             )
-
 
