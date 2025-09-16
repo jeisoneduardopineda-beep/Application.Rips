@@ -186,10 +186,10 @@ CAMPOS_CODIGOS = [
     "tipoMedicamento", "tipoOS", "codZonaTerritorialResidencia", "codMunicipioResidencia",
     "codPaisResidencia", "codPaisOrigen",
 ]
-
 def limpiar_valores(d):
     limpio = {}
     for k, v in d.items():
+        # pd.isna puede romperse con dict/list → proteger
         try:
             es_na = pd.isna(v)
         except Exception:
@@ -198,27 +198,38 @@ def limpiar_valores(d):
             limpio[k] = None
             continue
 
-        # codMunicipioResidencia como string 5 dígitos
+        # Regla específica: codMunicipioResidencia como string 5 dígitos
         if k == "codMunicipioResidencia":
             s = str(v).strip()
-            s = re.sub(r"\.0$", "", s)
-            s = re.sub(r"\D", "", s)
+            s = re.sub(r"\.0$", "", s)   # quita "12345.0" típico de Excel
+            s = re.sub(r"\D", "", s)     # deja solo dígitos
             limpio[k] = s.zfill(5) if s else None
             continue
 
+        # Números
         if k in CAMPOS_NUMERICOS:
             try:
-                fv = float(v)
-                limpio[k] = int(fv) if fv.is_integer() else fv
+                # trata cadena vacía como nulo
+                if isinstance(v, str) and v.strip() == "":
+                    limpio[k] = None
+                else:
+                    fv = float(v)
+                    limpio[k] = int(fv) if fv.is_integer() else fv
             except Exception:
                 limpio[k] = None
+
+        # Códigos
         elif k in CAMPOS_CODIGOS:
             s = str(v).strip()
             s = re.sub(r"\.0$", "", s)
             limpio[k] = s.zfill(2) if s else None
+
+        # Texto genérico
         else:
-            limpio[k] = v.strip() si_es_str(v:=v)
+            limpio[k] = v.strip() if isinstance(v, str) else str(v).strip()
+
     return limpio
+
 
 def si_es_str(v):
     return v if isinstance(v, str) else str(v)
@@ -398,3 +409,4 @@ elif "Excel ➜ JSON" in modo:
                 data=buffer,
                 file_name="RIPS_Evento_JSONs.zip"
             )
+
