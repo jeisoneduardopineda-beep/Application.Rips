@@ -1,4 +1,4 @@
-# app.py — endurecido para despliegue y compatible con streamlit-authenticator 0.3.3
+# app.py — endurecido para despliegue y compatible con streamlit-authenticator 0.3.x y 0.2.x
 import os
 import sys
 import json
@@ -57,7 +57,7 @@ def render_logo_left(path: str, height_px: int = 120):
 try:
     import streamlit_authenticator as stauth
 except Exception as e:
-    st.error("No pude importar 'streamlit_authenticator'. Asegura streamlit-authenticator==0.3.3 en requirements.txt.")
+    st.error("No pude importar 'streamlit_authenticator'. Asegura streamlit-authenticator en requirements.txt.")
     st.exception(e)
     st.stop()
 
@@ -73,6 +73,8 @@ try:
         }
         if "preauthorized" in st.secrets:
             config["preauthorized"] = dict(st.secrets["preauthorized"])
+        if "pre_authorized" in st.secrets:
+            config["pre_authorized"] = dict(st.secrets["pre_authorized"])
 except Exception:
     pass  # seguimos a YAML
 
@@ -94,23 +96,50 @@ if "credentials" not in config or "cookie" not in config:
     st.error("Config inválida. Faltan secciones 'credentials' o 'cookie'.")
     st.stop()
 
-# normaliza usernames a minúsculas (evita fallos por mayúsculas)
+# normaliza usernames a minúsculas (evita fallos por mayúsculas/espacios)
 if "usernames" in config.get("credentials", {}):
     config["credentials"]["usernames"] = {
-        str(k).lower(): v for k, v in config["credentials"]["usernames"].items()
+        str(k).strip().lower(): v for k, v in config["credentials"]["usernames"].items()
     }
 
-# --- Instanciar Authenticate (firma con keywords de 0.3.3) ---
+# --- Instanciar Authenticate compatible con varias firmas (0.3.x y 0.2.x) ---
+preauth_cfg = config.get("pre_authorized") or config.get("preauthorized") or {}
+emails_list = preauth_cfg.get("emails", []) if isinstance(preauth_cfg, dict) else preauth_cfg
+
 try:
+    # Algunas versiones 0.3.x usan "pre_authorized" como keyword
     authenticator = stauth.Authenticate(
         credentials=config["credentials"],
         cookie_name=config["cookie"]["name"],
         cookie_key=config["cookie"]["key"],
         cookie_expiry_days=config["cookie"]["expiry_days"],
-        preauthorized=config.get("preauthorized", {})
+        pre_authorized=preauth_cfg
     )
+except TypeError:
+    try:
+        # Otras usan "preauthorized" como keyword
+        authenticator = stauth.Authenticate(
+            credentials=config["credentials"],
+            cookie_name=config["cookie"]["name"],
+            cookie_key=config["cookie"]["key"],
+            cookie_expiry_days=config["cookie"]["expiry_days"],
+            preauthorized=preauth_cfg
+        )
+    except TypeError:
+        # Firma posicional estilo 0.2.x: quinto argumento = lista/bool de preautorizados
+        authenticator = stauth.Authenticate(
+            config["credentials"],
+            config["cookie"]["name"],
+            config["cookie"]["key"],
+            config["cookie"]["expiry_days"],
+            emails_list
+        )
+    except Exception as e:
+        st.error("No pude instanciar Authenticate (keyword). Revisa tu config/versión.")
+        st.exception(e)
+        st.stop()
 except Exception as e:
-    st.error("No pude instanciar Authenticate. Verifica llaves de 'cookie' y versión 0.3.3.")
+    st.error("No pude instanciar Authenticate. Revisa tu config/versión.")
     st.exception(e)
     st.stop()
 
@@ -220,13 +249,12 @@ def json_to_excel(files, tipo_factura):
                         datos[tipo_normalizado].append(reg)
 
     output = BytesIO()
-    # Usamos openpyxl (ya lo tienes en requirements)
+    # Usamos openpyxl (ya en requirements)
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         for tipo, registros in datos.items():
             if registros:
                 df = pd.DataFrame(registros)
-                # Evita hojas >31 caracteres
-                sheet = tipo.capitalize()[:31]
+                sheet = tipo.capitalize()[:31]  # Evita nombres >31 chars
                 df.to_excel(writer, sheet_name=sheet, index=False)
     output.seek(0)
     return output
@@ -369,3 +397,5 @@ elif "Excel ➜ JSON" in modo:
                 data=buffer,
                 file_name="RIPS_Evento_JSONs.zip"
             )
+
+
