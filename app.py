@@ -141,7 +141,7 @@ except Exception as e:
     st.exception(e)
     st.stop()
 
-name, authentication_status, username = authenticator.login("🔐 Iniciar sesión", "main")
+name, authentication_status, username = authenticator.login(form_name="🔐 Iniciar sesión", location="main")
 
 # -------------------------------------------------------------------
 # Estados de login
@@ -154,7 +154,7 @@ elif authentication_status is None:
     st.stop()
 
 # Autenticado
-authenticator.logout("🚪 Cerrar sesión", "sidebar")
+authenticator.logout(button_name="🚪 Cerrar sesión", location="sidebar")
 
 # Logo en sidebar + top
 if os.path.exists(LOGO_PATH):
@@ -394,4 +394,5 @@ elif "Excel ➜ JSON" in modo:
                 data=buffer,
                 file_name="RIPS_Evento_JSONs.zip"
             )
+
 
