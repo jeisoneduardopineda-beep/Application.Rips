@@ -25,9 +25,9 @@ def to_plain(x):
 # -------------------------------------------------------------------
 # Config de página + LOGO
 # -------------------------------------------------------------------
-LOGO_PATH = "medidatarips_logo.png"
-page_icon = LOGO_PATH if os.path.exists(LOGO_PATH) else None
-
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+LOGO_PATH = os.path.join(BASE_DIR, "medidatarips_logo.png")
+page_icon = LOGO_PATH if os.path.isfile(LOGO_PATH) else None
 st.set_page_config(
     page_title="Transformador RIPS PGP & EVENTO",
     layout="centered",
@@ -39,7 +39,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 def render_logo_left(path: str, height_px: int = 120):
-    if not os.path.exists(path):
+    if not path or not os.path.isfile(path):
         return
     try:
         with open(path, "rb") as f:
@@ -54,7 +54,6 @@ def render_logo_left(path: str, height_px: int = 120):
         )
     except Exception as e:
         st.warning(f"No se pudo cargar el logo: {e}")
-
 # -------------------------------------------------------------------
 # Autenticación: secrets -> dicts planos, YAML fallback y firma segura
 # -------------------------------------------------------------------
@@ -170,11 +169,18 @@ else:
     authenticator.logout("🚪 Cerrar sesión")
 
 # Logo en sidebar + top
-if os.path.exists(LOGO_PATH):
-    st.sidebar.image(LOGO_PATH, use_container_width=True)
-render_logo_left(LOGO_PATH, height_px=150)
+def show_sidebar_logo():
+    try:
+        if LOGO_PATH and os.path.isfile(LOGO_PATH):
+            st.sidebar.image(str(LOGO_PATH), use_container_width=True)
+        else:
+            # mensaje suave para no romper el flujo si falta el logo
+            st.sidebar.info("Sube 'medidatarips_logo.png' a la carpeta de la app.")
+    except Exception as e:
+        st.sidebar.warning(f"No pude mostrar el logo: {e}")
 
-st.title(f"🔄 Bienvenido {name}")
+# úsalo donde antes pintabas el logo en el sidebar
+show_sidebar_logo()
 
 # ===========================================================
 #                CONVERSOR RIPS  PGP / EVENTO
@@ -408,4 +414,5 @@ elif "Excel ➜ JSON" in modo:
                 data=buffer,
                 file_name="RIPS_Evento_JSONs.zip"
             )
+
 
