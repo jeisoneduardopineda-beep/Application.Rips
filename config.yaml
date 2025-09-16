@@ -2,7 +2,7 @@
 
   [credentials.usernames.jeison]
   name = "Jeison Eduardo"
-  password = "$2b$12$gWU.PE.HRMXcXa8a/opsMFO7TiE7hAwgje8Wz5.Vj81qYFEB/444aa"
+  password = "$2b$12$KslcEH3xuTXI0iiabrksNOY9RRutN8rU8Kiy.u55ZVLSrLlpHgcP."
 
   [credentials.usernames.operador]
   name = "Operador de Facturación"
