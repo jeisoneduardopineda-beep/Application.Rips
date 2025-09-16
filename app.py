@@ -10,6 +10,7 @@ import pandas as pd
 import streamlit as st
 import yaml
 from yaml.loader import SafeLoader
+import inspect  # <- para detectar la firma real de Authenticate
 
 # -------------------------------------------------------------------
 # Config de página + LOGO
@@ -102,42 +103,39 @@ if "usernames" in config.get("credentials", {}):
         str(k).strip().lower(): v for k, v in config["credentials"]["usernames"].items()
     }
 
-# --- Instanciar Authenticate compatible con varias firmas (0.3.x y 0.2.x) ---
+# --- Instanciar Authenticate compatible sin duplicar widgets ---
 preauth_cfg = config.get("pre_authorized") or config.get("preauthorized") or {}
 emails_list = preauth_cfg.get("emails", []) if isinstance(preauth_cfg, dict) else preauth_cfg
 
 try:
-    # Algunas versiones 0.3.x usan "pre_authorized" como keyword
-    authenticator = stauth.Authenticate(
-        credentials=config["credentials"],
-        cookie_name=config["cookie"]["name"],
-        cookie_key=config["cookie"]["key"],
-        cookie_expiry_days=config["cookie"]["expiry_days"],
-        pre_authorized=preauth_cfg
-    )
-except TypeError:
-    try:
-        # Otras usan "preauthorized" como keyword
+    params = inspect.signature(stauth.Authenticate.__init__).parameters
+    if "pre_authorized" in params:
+        # 0.3.x con pre_authorized
         authenticator = stauth.Authenticate(
             credentials=config["credentials"],
             cookie_name=config["cookie"]["name"],
             cookie_key=config["cookie"]["key"],
             cookie_expiry_days=config["cookie"]["expiry_days"],
-            preauthorized=preauth_cfg
+            pre_authorized=preauth_cfg,
         )
-    except TypeError:
-        # Firma posicional estilo 0.2.x: quinto argumento = lista/bool de preautorizados
+    elif "preauthorized" in params:
+        # 0.3.x variante con preauthorized
+        authenticator = stauth.Authenticate(
+            credentials=config["credentials"],
+            cookie_name=config["cookie"]["name"],
+            cookie_key=config["cookie"]["key"],
+            cookie_expiry_days=config["cookie"]["expiry_days"],
+            preauthorized=preauth_cfg,
+        )
+    else:
+        # 0.2.x posicional (quinto argumento)
         authenticator = stauth.Authenticate(
             config["credentials"],
             config["cookie"]["name"],
             config["cookie"]["key"],
             config["cookie"]["expiry_days"],
-            emails_list
+            emails_list,
         )
-    except Exception as e:
-        st.error("No pude instanciar Authenticate (keyword). Revisa tu config/versión.")
-        st.exception(e)
-        st.stop()
 except Exception as e:
     st.error("No pude instanciar Authenticate. Revisa tu config/versión.")
     st.exception(e)
@@ -219,8 +217,11 @@ def limpiar_valores(d):
             s = re.sub(r"\.0$", "", s)
             limpio[k] = s.zfill(2) if s else None
         else:
-            limpio[k] = v.strip() if isinstance(v, str) else str(v).strip()
+            limpio[k] = v.strip() si_es_str(v:=v)
     return limpio
+
+def si_es_str(v):
+    return v if isinstance(v, str) else str(v)
 
 def json_to_excel(files, tipo_factura):
     datos = {tipo: [] for tipo in ["usuarios"] + list(set([s.lower() for s in TIPOS_SERVICIOS]))}
@@ -397,5 +398,3 @@ elif "Excel ➜ JSON" in modo:
                 data=buffer,
                 file_name="RIPS_Evento_JSONs.zip"
             )
-
-
