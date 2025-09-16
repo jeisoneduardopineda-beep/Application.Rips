@@ -1,6 +1,5 @@
 # app.py — endurecido para despliegue y compatible con streamlit-authenticator 0.3.x y 0.2.x
 import os
-import sys
 import json
 import zipfile
 from io import BytesIO
@@ -10,12 +9,23 @@ import pandas as pd
 import streamlit as st
 import yaml
 from yaml.loader import SafeLoader
-import inspect  # <- para detectar la firma real de Authenticate
+import inspect
+from collections.abc import Mapping
+
+# -------------------------------------------------------------------
+# Util: convertir cualquier estructura a dict/list planos (evita objetos Secrets)
+# -------------------------------------------------------------------
+def to_plain(x):
+    if isinstance(x, Mapping):
+        return {k: to_plain(v) for k, v in x.items()}
+    if isinstance(x, (list, tuple)):
+        return [to_plain(v) for v in x]
+    return x
 
 # -------------------------------------------------------------------
 # Config de página + LOGO
 # -------------------------------------------------------------------
-LOGO_PATH = "medidatarips_logo.png"  # coloca aquí tu archivo de logo
+LOGO_PATH = "medidatarips_logo.png"
 page_icon = LOGO_PATH if os.path.exists(LOGO_PATH) else None
 
 st.set_page_config(
@@ -24,15 +34,11 @@ st.set_page_config(
     page_icon=page_icon
 )
 
-# (Opcional) Ajuste visual para que el logo “respire” mejor arriba
 st.markdown("""
-<style>
-.block-container { padding-top: 1.2rem; }
-</style>
+<style>.block-container { padding-top: 1.2rem; }</style>
 """, unsafe_allow_html=True)
 
 def render_logo_left(path: str, height_px: int = 120):
-    """Muestra el logo 100% a la izquierda usando HTML seguro con base64."""
     if not os.path.exists(path):
         return
     try:
@@ -50,10 +56,7 @@ def render_logo_left(path: str, height_px: int = 120):
         st.warning(f"No se pudo cargar el logo: {e}")
 
 # -------------------------------------------------------------------
-# Autenticación
-#   1) Primero intenta st.secrets (ideal en la nube)
-#   2) Si no hay, usa config.yaml
-#   3) Valida claves mínimas y maneja errores en UI
+# Autenticación: secrets -> dicts planos, YAML fallback y firma segura
 # -------------------------------------------------------------------
 try:
     import streamlit_authenticator as stauth
@@ -62,28 +65,27 @@ except Exception as e:
     st.exception(e)
     st.stop()
 
-# --- Cargar config desde secrets o YAML ---
 config = None
 
-# 1) st.secrets (recomendado en despliegue)
+# 1) st.secrets (preferido)
 try:
     if "credentials" in st.secrets and "cookie" in st.secrets:
         config = {
-            "credentials": dict(st.secrets["credentials"]),
-            "cookie": dict(st.secrets["cookie"]),
+            "credentials": to_plain(st.secrets["credentials"]),
+            "cookie":      to_plain(st.secrets["cookie"]),
         }
         if "preauthorized" in st.secrets:
-            config["preauthorized"] = dict(st.secrets["preauthorized"])
+            config["preauthorized"] = to_plain(st.secrets["preauthorized"])
         if "pre_authorized" in st.secrets:
-            config["pre_authorized"] = dict(st.secrets["pre_authorized"])
+            config["pre_authorized"] = to_plain(st.secrets["pre_authorized"])
 except Exception:
-    pass  # seguimos a YAML
+    pass
 
-# 2) config.yaml local
+# 2) YAML local
 if config is None:
     try:
         with open("config.yaml", "r", encoding="utf-8") as f:
-            config = yaml.load(f, Loader=SafeLoader)
+            config = to_plain(yaml.load(f, Loader=SafeLoader))
     except FileNotFoundError:
         st.error("No encuentro 'config.yaml' y no hay 'st.secrets'. Sube uno de los dos.")
         st.stop()
@@ -92,25 +94,24 @@ if config is None:
         st.exception(e)
         st.stop()
 
-# 3) Validación mínima para evitar KeyError luego
+# 3) Validación mínima
 if "credentials" not in config or "cookie" not in config:
     st.error("Config inválida. Faltan secciones 'credentials' o 'cookie'.")
     st.stop()
 
-# normaliza usernames a minúsculas (evita fallos por mayúsculas/espacios)
+# Normaliza usernames a minúsculas
 if "usernames" in config.get("credentials", {}):
     config["credentials"]["usernames"] = {
         str(k).strip().lower(): v for k, v in config["credentials"]["usernames"].items()
     }
 
-# --- Instanciar Authenticate compatible sin duplicar widgets ---
-preauth_cfg = config.get("pre_authorized") or config.get("preauthorized") or {}
-emails_list = preauth_cfg.get("emails", []) if isinstance(preauth_cfg, dict) else preauth_cfg
+# Instanciación sin duplicar widgets (detecta firma real)
+preauth_cfg  = config.get("pre_authorized") or config.get("preauthorized") or {}
+emails_list  = preauth_cfg.get("emails", []) if isinstance(preauth_cfg, dict) else preauth_cfg
 
 try:
     params = inspect.signature(stauth.Authenticate.__init__).parameters
     if "pre_authorized" in params:
-        # 0.3.x con pre_authorized
         authenticator = stauth.Authenticate(
             credentials=config["credentials"],
             cookie_name=config["cookie"]["name"],
@@ -119,7 +120,6 @@ try:
             pre_authorized=preauth_cfg,
         )
     elif "preauthorized" in params:
-        # 0.3.x variante con preauthorized
         authenticator = stauth.Authenticate(
             credentials=config["credentials"],
             cookie_name=config["cookie"]["name"],
@@ -128,7 +128,7 @@ try:
             preauthorized=preauth_cfg,
         )
     else:
-        # 0.2.x posicional (quinto argumento)
+        # Firma posicional (0.2.x)
         authenticator = stauth.Authenticate(
             config["credentials"],
             config["cookie"]["name"],
@@ -156,11 +156,9 @@ elif authentication_status is None:
 # Autenticado
 authenticator.logout("🚪 Cerrar sesión", "sidebar")
 
-# --- LOGO en sidebar (opcional) ---
+# Logo en sidebar + top
 if os.path.exists(LOGO_PATH):
     st.sidebar.image(LOGO_PATH, use_container_width=True)
-
-# --- LOGO arriba totalmente a la izquierda ---
 render_logo_left(LOGO_PATH, height_px=150)
 
 st.title(f"🔄 Bienvenido {name}")
@@ -186,10 +184,10 @@ CAMPOS_CODIGOS = [
     "tipoMedicamento", "tipoOS", "codZonaTerritorialResidencia", "codMunicipioResidencia",
     "codPaisResidencia", "codPaisOrigen",
 ]
+
 def limpiar_valores(d):
     limpio = {}
     for k, v in d.items():
-        # pd.isna puede romperse con dict/list → proteger
         try:
             es_na = pd.isna(v)
         except Exception:
@@ -198,18 +196,15 @@ def limpiar_valores(d):
             limpio[k] = None
             continue
 
-        # Regla específica: codMunicipioResidencia como string 5 dígitos
         if k == "codMunicipioResidencia":
             s = str(v).strip()
-            s = re.sub(r"\.0$", "", s)   # quita "12345.0" típico de Excel
-            s = re.sub(r"\D", "", s)     # deja solo dígitos
+            s = re.sub(r"\.0$", "", s)
+            s = re.sub(r"\D", "", s)
             limpio[k] = s.zfill(5) if s else None
             continue
 
-        # Números
         if k in CAMPOS_NUMERICOS:
             try:
-                # trata cadena vacía como nulo
                 if isinstance(v, str) and v.strip() == "":
                     limpio[k] = None
                 else:
@@ -217,22 +212,13 @@ def limpiar_valores(d):
                     limpio[k] = int(fv) if fv.is_integer() else fv
             except Exception:
                 limpio[k] = None
-
-        # Códigos
         elif k in CAMPOS_CODIGOS:
             s = str(v).strip()
             s = re.sub(r"\.0$", "", s)
             limpio[k] = s.zfill(2) if s else None
-
-        # Texto genérico
         else:
             limpio[k] = v.strip() if isinstance(v, str) else str(v).strip()
-
     return limpio
-
-
-def si_es_str(v):
-    return v if isinstance(v, str) else str(v)
 
 def json_to_excel(files, tipo_factura):
     datos = {tipo: [] for tipo in ["usuarios"] + list(set([s.lower() for s in TIPOS_SERVICIOS]))}
@@ -261,12 +247,11 @@ def json_to_excel(files, tipo_factura):
                         datos[tipo_normalizado].append(reg)
 
     output = BytesIO()
-    # Usamos openpyxl (ya en requirements)
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         for tipo, registros in datos.items():
             if registros:
                 df = pd.DataFrame(registros)
-                sheet = tipo.capitalize()[:31]  # Evita nombres >31 chars
+                sheet = tipo.capitalize()[:31]
                 df.to_excel(writer, sheet_name=sheet, index=False)
     output.seek(0)
     return output
@@ -387,7 +372,7 @@ if "JSON ➜ Excel" in modo:
 
 elif "Excel ➜ JSON" in modo:
     archivo_excel = st.file_uploader("📂 Selecciona archivo Excel", type=["xlsx"])
-    if archivo_excel and st.button("🚀 Convertir a JSON"):
+    if archivo_excel y st.button("🚀 Convertir a JSON"):
         tipo_factura = "PGP" if "PGP" in modo else "EVENTO"
         resultado = excel_to_json(archivo_excel, tipo_factura, nit_obligado)
 
@@ -409,4 +394,3 @@ elif "Excel ➜ JSON" in modo:
                 data=buffer,
                 file_name="RIPS_Evento_JSONs.zip"
             )
-
