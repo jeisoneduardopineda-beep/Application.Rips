@@ -372,7 +372,7 @@ if "JSON ➜ Excel" in modo:
 
 elif "Excel ➜ JSON" in modo:
     archivo_excel = st.file_uploader("📂 Selecciona archivo Excel", type=["xlsx"])
-    if archivo_excel y st.button("🚀 Convertir a JSON"):
+    if archivo_excel and st.button("🚀 Convertir a JSON"):  # <- and, no y
         tipo_factura = "PGP" if "PGP" in modo else "EVENTO"
         resultado = excel_to_json(archivo_excel, tipo_factura, nit_obligado)
 
@@ -394,3 +394,4 @@ elif "Excel ➜ JSON" in modo:
                 data=buffer,
                 file_name="RIPS_Evento_JSONs.zip"
             )
+
