@@ -10,7 +10,7 @@
 
   [credentials.usernames.auditor]
   name = "Auditor Interno"
-  password = "$2b$12$FWhuw91pY.trH9d0mcBmb.Nd0GjJuvdI0YcYelrU47n7gF1am97tQe"
+  password = "$2b$12$hpEUUzIblqylxc57jPdChOUc8QE9Nn//qa2kPclbWPCR0.XYJW9iq"
 
   [credentials.usernames.admin]
   name = "Administrador General"
