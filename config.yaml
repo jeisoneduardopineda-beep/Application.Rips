@@ -6,7 +6,7 @@
 
   [credentials.usernames.operador]
   name = "Operador de Facturación"
-  password = "$2b$12$/vWr.C1YiVQimFG913YuOvBZyJBhXOvv5GcLN0hP51xntsVKkO"
+  password = "$2b$12$wx1oBFs41xh4LMwRzAHkaeNiI9jyj2TRGXTtV1m0vbYZpo/FGl0bW"
 
   [credentials.usernames.auditor]
   name = "Auditor Interno"
