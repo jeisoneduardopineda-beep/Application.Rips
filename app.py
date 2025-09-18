@@ -1,42 +1,49 @@
-# app.py — endurecido para despliegue y compatible con streamlit-authenticator 0.3.x y 0.2.x
+# app.py — robusto para despliegue; muestra errores en pantalla y es compatible con streamlit-authenticator 0.2.x/0.3.x
+
 import os
 import json
 import zipfile
 from io import BytesIO
 import re
 import base64
+from collections.abc import Mapping
+
 import pandas as pd
 import streamlit as st
 import yaml
 from yaml.loader import SafeLoader
 import inspect as _inspect
-from collections.abc import Mapping
 
-# -------------------------------------------------------------------
-# Util: convertir cualquier estructura a dict/list planos (evita objetos Secrets)
-# -------------------------------------------------------------------
+# ===========================================================
+# 0) Guard: muestra el traceback en la propia app si algo falla
+# ===========================================================
+import traceback
+
+def guard(fn):
+    try:
+        fn()
+    except Exception as e:
+        st.error("Excepción en tiempo de ejecución")
+        st.code("".join(traceback.format_exception(e)), language="python")
+        st.stop()
+
+# ===========================================================
+# 1) Utilidades generales
+# ===========================================================
 def to_plain(x):
+    """Convierte estructuras Secrets/YAML a dict/list planos."""
     if isinstance(x, Mapping):
         return {k: to_plain(v) for k, v in x.items()}
     if isinstance(x, (list, tuple)):
         return [to_plain(v) for v in x]
     return x
 
-# -------------------------------------------------------------------
-# Config de página + LOGO
-# -------------------------------------------------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOGO_PATH = os.path.join(BASE_DIR, "medidatarips_logo.png")
-page_icon = LOGO_PATH if os.path.isfile(LOGO_PATH) else None
-st.set_page_config(
-    page_title="Transformador RIPS PGP & EVENTO",
-    layout="centered",
-    page_icon=page_icon
-)
 
-st.markdown("""
-<style>.block-container { padding-top: 1.2rem; }</style>
-""", unsafe_allow_html=True)
+page_icon = LOGO_PATH if os.path.isfile(LOGO_PATH) else None
+st.set_page_config(page_title="Transformador RIPS PGP & EVENTO", layout="centered", page_icon=page_icon)
+st.markdown("<style>.block-container{padding-top:1.2rem}</style>", unsafe_allow_html=True)
 
 def render_logo_left(path: str, height_px: int = 120):
     if not path or not os.path.isfile(path):
@@ -45,145 +52,107 @@ def render_logo_left(path: str, height_px: int = 120):
         with open(path, "rb") as f:
             b64 = base64.b64encode(f.read()).decode()
         st.markdown(
-            f"""
-            <div style="display:flex; align-items:center; justify-content:flex-start;">
-                <img src="data:image/png;base64,{b64}" alt="Logo MedidataRIPS" style="height:{height_px}px;">
-            </div>
-            """,
+            f'<div style="display:flex;align-items:center;justify-content:flex-start;">'
+            f'<img src="data:image/png;base64,{b64}" alt="Logo" style="height:{height_px}px;"></div>',
             unsafe_allow_html=True
         )
     except Exception as e:
         st.warning(f"No se pudo cargar el logo: {e}")
-# -------------------------------------------------------------------
-# Autenticación: secrets -> dicts planos, YAML fallback y firma segura
-# -------------------------------------------------------------------
-try:
-    import streamlit_authenticator as stauth
-except Exception as e:
-    st.error("No pude importar 'streamlit_authenticator'. Asegura streamlit-authenticator en requirements.txt.")
-    st.exception(e)
-    st.stop()
 
-config = None
-
-# 1) st.secrets (preferido)
-try:
-    if "credentials" in st.secrets and "cookie" in st.secrets:
-        config = {
-            "credentials": to_plain(st.secrets["credentials"]),
-            "cookie":      to_plain(st.secrets["cookie"]),
-        }
-        if "preauthorized" in st.secrets:
-            config["preauthorized"] = to_plain(st.secrets["preauthorized"])
-        if "pre_authorized" in st.secrets:
-            config["pre_authorized"] = to_plain(st.secrets["pre_authorized"])
-except Exception:
-    pass
-
-# 2) YAML local
-if config is None:
-    try:
-        with open("config.yaml", "r", encoding="utf-8") as f:
-            config = to_plain(yaml.load(f, Loader=SafeLoader))
-    except FileNotFoundError:
-        st.error("No encuentro 'config.yaml' y no hay 'st.secrets'. Sube uno de los dos.")
-        st.stop()
-    except Exception as e:
-        st.error("Error leyendo 'config.yaml'. Revisa la sintaxis YAML.")
-        st.exception(e)
-        st.stop()
-
-# 3) Validación mínima
-if "credentials" not in config or "cookie" not in config:
-    st.error("Config inválida. Faltan secciones 'credentials' o 'cookie'.")
-    st.stop()
-
-# Normaliza usernames a minúsculas
-if "usernames" in config.get("credentials", {}):
-    config["credentials"]["usernames"] = {
-        str(k).strip().lower(): v for k, v in config["credentials"]["usernames"].items()
-    }
-
-# Instanciación evitando líos de versión
-preauth_cfg  = config.get("pre_authorized") or config.get("preauthorized") or {}
-emails_list  = preauth_cfg.get("emails", []) if isinstance(preauth_cfg, dict) else preauth_cfg
-
-try:
-    _params = list(_inspect.signature(stauth.Authenticate.__init__).parameters.keys())
-    if "pre_authorized" in _params:
-        authenticator = stauth.Authenticate(
-            credentials=config["credentials"],
-            cookie_name=config["cookie"]["name"],
-            cookie_key=config["cookie"]["key"],
-            cookie_expiry_days=config["cookie"]["expiry_days"],
-            pre_authorized=preauth_cfg,
-        )
-    elif "preauthorized" in _params:
-        authenticator = stauth.Authenticate(
-            credentials=config["credentials"],
-            cookie_name=config["cookie"]["name"],
-            cookie_key=config["cookie"]["key"],
-            cookie_expiry_days=config["cookie"]["expiry_days"],
-            preauthorized=preauth_cfg,
-        )
-    else:
-        # Firma posicional (0.2.x)
-        authenticator = stauth.Authenticate(
-            config["credentials"],
-            config["cookie"]["name"],
-            config["cookie"]["key"],
-            config["cookie"]["expiry_days"],
-            emails_list,
-        )
-except Exception as e:
-    st.error("No pude instanciar Authenticate. Revisa tu config/versión.")
-    st.exception(e)
-    st.stop()
-
-# ----- Login / Logout compatibles con varias firmas -----
-_login_params = list(_inspect.signature(authenticator.login).parameters.keys())
-if _login_params and _login_params[0] == "location":
-    # API antigua: login(location, form_name, ...)
-    name, authentication_status, username = authenticator.login("main", "🔐 Iniciar sesión")
-else:
-    # API común/reciente: login(form_name, location, ...)
-    name, authentication_status, username = authenticator.login("🔐 Iniciar sesión", "main")
-
-# -------------------------------------------------------------------
-# Estados de login
-# -------------------------------------------------------------------
-if authentication_status is False:
-    st.error("❌ Usuario o contraseña incorrectos.")
-    st.stop()
-elif authentication_status is None:
-    st.warning("Por favor ingresa tus credenciales.")
-    st.stop()
-
-# Autenticado -> logout robusto
-_logout_params = list(_inspect.signature(authenticator.logout).parameters.keys())
-if _logout_params and _logout_params[0] == "button_name":
-    authenticator.logout("🚪 Cerrar sesión", "sidebar")
-elif "location" in _logout_params:
-    authenticator.logout(location="sidebar")
-else:
-    authenticator.logout("🚪 Cerrar sesión")
-
-# Logo en sidebar + top
 def show_sidebar_logo():
     try:
-        if LOGO_PATH and os.path.isfile(LOGO_PATH):
-            st.sidebar.image(str(LOGO_PATH), use_container_width=True)
+        if os.path.isfile(LOGO_PATH):
+            st.sidebar.image(LOGO_PATH, use_container_width=True)
         else:
-            # mensaje suave para no romper el flujo si falta el logo
             st.sidebar.info("Sube 'medidatarips_logo.png' a la carpeta de la app.")
     except Exception as e:
         st.sidebar.warning(f"No pude mostrar el logo: {e}")
 
-# úsalo donde antes pintabas el logo en el sidebar
-show_sidebar_logo()
+# ===========================================================
+# 2) Autenticación
+# ===========================================================
+try:
+    import streamlit_authenticator as stauth
+except Exception as e:
+    st.error("Falta 'streamlit-authenticator' en requirements.txt")
+    st.exception(e)
+    st.stop()
+
+def load_auth_config():
+    # 1) Secrets
+    try:
+        if "credentials" in st.secrets and "cookie" in st.secrets:
+            cfg = {
+                "credentials": to_plain(st.secrets["credentials"]),
+                "cookie":      to_plain(st.secrets["cookie"]),
+            }
+            if "preauthorized" in st.secrets:
+                cfg["preauthorized"] = to_plain(st.secrets["preauthorized"])
+            if "pre_authorized" in st.secrets:
+                cfg["pre_authorized"] = to_plain(st.secrets["pre_authorized"])
+            return cfg
+    except Exception:
+        pass
+    # 2) YAML local
+    try:
+        with open(os.path.join(BASE_DIR, "config.yaml"), "r", encoding="utf-8") as f:
+            return to_plain(yaml.load(f, Loader=SafeLoader))
+    except FileNotFoundError:
+        st.error("No encuentro 'config.yaml' y no hay 'st.secrets'. Sube uno de los dos.")
+        st.stop()
+    except Exception as e:
+        st.error("Error leyendo 'config.yaml'. Revisa sintaxis.")
+        st.exception(e)
+        st.stop()
+
+def build_authenticator(config: dict):
+    if "credentials" not in config or "cookie" not in config:
+        st.error("Config inválida. Faltan 'credentials' o 'cookie'.")
+        st.stop()
+
+    # normaliza usernames a minúsculas
+    if "usernames" in config.get("credentials", {}):
+        config["credentials"]["usernames"] = {
+            str(k).strip().lower(): v for k, v in config["credentials"]["usernames"].items()
+        }
+
+    preauth_cfg = config.get("pre_authorized") or config.get("preauthorized") or {}
+    emails_list = preauth_cfg.get("emails", []) if isinstance(preauth_cfg, dict) else preauth_cfg
+
+    try:
+        params = list(_inspect.signature(stauth.Authenticate.__init__).parameters.keys())
+        if "pre_authorized" in params:
+            return stauth.Authenticate(
+                credentials=config["credentials"],
+                cookie_name=config["cookie"]["name"],
+                cookie_key=config["cookie"]["key"],
+                cookie_expiry_days=config["cookie"]["expiry_days"],
+                pre_authorized=preauth_cfg,
+            )
+        elif "preauthorized" in params:
+            return stauth.Authenticate(
+                credentials=config["credentials"],
+                cookie_name=config["cookie"]["name"],
+                cookie_key=config["cookie"]["key"],
+                cookie_expiry_days=config["cookie"]["expiry_days"],
+                preauthorized=preauth_cfg,
+            )
+        else:
+            # Firma posicional (0.2.x)
+            return stauth.Authenticate(
+                config["credentials"],
+                config["cookie"]["name"],
+                config["cookie"]["key"],
+                config["cookie"]["expiry_days"],
+                emails_list,
+            )
+    except Exception as e:
+        st.error("No pude instanciar Authenticate. Revisa versión y config.")
+        st.exception(e)
+        st.stop()
 
 # ===========================================================
-#                CONVERSOR RIPS  PGP / EVENTO
+# 3) Dominio RIPS
 # ===========================================================
 TIPOS_SERVICIOS = [
     "consultas", "procedimientos", "hospitalizacion", "hospitalizaciones",
@@ -242,9 +211,14 @@ def limpiar_valores(d):
 def json_to_excel(files, tipo_factura):
     datos = {tipo: [] for tipo in ["usuarios"] + list(set([s.lower() for s in TIPOS_SERVICIOS]))}
     for archivo in files:
-        data = json.load(archivo)
+        try:
+            data = json.load(archivo)
+        except Exception as e:
+            st.error(f"Archivo JSON inválido: {getattr(archivo,'name','<sin nombre>')}")
+            st.exception(e)
+            return None
         num_factura = data.get("numFactura", "SIN_FACTURA")
-        archivo_origen = os.path.splitext(archivo.name)[0]
+        archivo_origen = os.path.splitext(getattr(archivo, "name", "archivo"))[0]
         usuarios = data.get("usuarios", [])
 
         for usuario in usuarios:
@@ -276,8 +250,14 @@ def json_to_excel(files, tipo_factura):
     return output
 
 def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
-    xlsx = pd.read_excel(archivo_excel, sheet_name=None)
-    dataframes = {k.lower(): v for k, v in xlsx.items()}
+    try:
+        xlsx = pd.read_excel(archivo_excel, sheet_name=None)
+    except Exception as e:
+        st.error("No pude leer el Excel. Verifica formato y hojas.")
+        st.exception(e)
+        return None
+
+    dataframes = {str(k).lower(): v for k, v in xlsx.items()}
     if "usuarios" not in dataframes:
         st.error("❌ El archivo no contiene una hoja llamada 'usuarios'.")
         return None
@@ -301,7 +281,6 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
             usuario_limpio.pop("archivo_origen", None)
             usuario_limpio.pop("numFactura", None)
 
-        # construir servicios por usuario
             servicios_dict = {}
             for tipo in tipos_servicios:
                 df_tipo = dataframes[tipo]
@@ -321,12 +300,7 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
             "numNota": None,
             "usuarios": usuarios_final,
         }
-
-        return {
-            "tipo": "único",
-            "contenido": json.dumps(salida_json, ensure_ascii=False, indent=2),
-            "nombre": f"Factura_RIPS_{tipo_factura}.json",
-        }
+        return {"tipo": "único", "contenido": json.dumps(salida_json, ensure_ascii=False, indent=2), "nombre": f"Factura_RIPS_{tipo_factura}.json"}
 
     else:
         salida_archivos = {}
@@ -344,10 +318,7 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
                 servicios_dict = {}
                 for tipo in tipos_servicios:
                     df_tipo = dataframes[tipo]
-                    registros = df_tipo[
-                        (df_tipo["numFactura"] == factura) &
-                        (df_tipo["documento_usuario"] == doc)
-                    ]
+                    registros = df_tipo[(df_tipo["numFactura"] == factura) & (df_tipo["documento_usuario"] == doc)]
                     if not registros.empty:
                         registros = registros.drop(columns=["numFactura", "documento_usuario", "archivo_origen"], errors="ignore")
                         registros_limpios = [limpiar_valores(r) for _, r in registros.iterrows()]
@@ -363,56 +334,94 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
                 "numNota": None,
                 "usuarios": usuarios_final,
             }
-
             salida_archivos[f"{factura}_RIPS.json"] = json.dumps(salida_json, ensure_ascii=False, indent=2)
 
         return {"tipo": "zip", "contenido": salida_archivos}
 
-# -------------------------------------------------------------------
-# UI
-# -------------------------------------------------------------------
-st.subheader("📄 Transformador RIPS: PGP y EVENTO")
+# ===========================================================
+# 4) UI principal
+# ===========================================================
+def main():
+    # Auth
+    config = load_auth_config()
+    authenticator = build_authenticator(config)
 
-modo = st.radio(
-    "Selecciona el tipo de conversión:",
-    ["📥 JSON ➜ Excel (PGP)", "📤 Excel ➜ JSON (PGP)",
-     "📥 JSON ➜ Excel (Evento)", "📤 Excel ➜ JSON (Evento)"]
-)
+    # Login (soporta firmas 0.2.x / 0.3.x)
+    login_params = list(_inspect.signature(authenticator.login).parameters.keys())
+    if login_params and login_params[0] == "location":
+        name, auth_status, username = authenticator.login("main", "🔐 Iniciar sesión")
+    else:
+        name, auth_status, username = authenticator.login("🔐 Iniciar sesión", "main")
 
-nit_obligado = st.text_input("🔢 NIT del Obligado a Facturar", value="900364721")
+    if auth_status is False:
+        st.error("❌ Usuario o contraseña incorrectos.")
+        st.stop()
+    elif auth_status is None:
+        st.warning("Por favor ingresa tus credenciales.")
+        st.stop()
 
-resultado = None
+    # Logout
+    logout_params = list(_inspect.signature(authenticator.logout).parameters.keys())
+    if logout_params and logout_params[0] == "button_name":
+        authenticator.logout("🚪 Cerrar sesión", "sidebar")
+    elif "location" in logout_params:
+        authenticator.logout(location="sidebar")
+    else:
+        authenticator.logout("🚪 Cerrar sesión")
 
-if "JSON ➜ Excel" in modo:
-    archivos = st.file_uploader("📂 Selecciona uno o varios archivos JSON", type=["json"], accept_multiple_files=True)
-    if archivos and st.button("🚀 Convertir a Excel"):
-        tipo_factura = "PGP" if "PGP" in modo else "EVENTO"
-        excel_data = json_to_excel(archivos, tipo_factura)
-        st.download_button("⬇️ Descargar Excel", data=excel_data, file_name=f"RIPS_Consolidado_{tipo_factura}.xlsx")
+    # UI
+    show_sidebar_logo()
+    render_logo_left(LOGO_PATH, height_px=90)
+    st.subheader("📄 Transformador RIPS: PGP y EVENTO")
 
-elif "Excel ➜ JSON" in modo:
-    archivo_excel = st.file_uploader("📂 Selecciona archivo Excel", type=["xlsx"])
-    if archivo_excel and st.button("🚀 Convertir a JSON"):
-        tipo_factura = "PGP" if "PGP" in modo else "EVENTO"
-        resultado = excel_to_json(archivo_excel, tipo_factura, nit_obligado)
+    modo = st.radio(
+        "Selecciona el tipo de conversión:",
+        ["📥 JSON ➜ Excel (PGP)", "📤 Excel ➜ JSON (PGP)",
+         "📥 JSON ➜ Excel (Evento)", "📤 Excel ➜ JSON (Evento)"]
+    )
 
-    if resultado:
-        if resultado["tipo"] == "único":
-            st.download_button(
-                "⬇️ Descargar JSON",
-                data=resultado["contenido"].encode("utf-8"),
-                file_name=resultado["nombre"]
-            )
-        elif resultado["tipo"] == "zip":
-            buffer = BytesIO()
-            with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zipf:
-                for nombre, contenido in resultado["contenido"].items():
-                    zipf.writestr(nombre, contenido)
-            buffer.seek(0)
-            st.download_button(
-                "⬇️ Descargar ZIP de JSONs",
-                data=buffer,
-                file_name="RIPS_Evento_JSONs.zip"
-            )
+    nit_obligado = st.text_input("🔢 NIT del Obligado a Facturar", value="900364721")
+    resultado = None
 
+    if "JSON ➜ Excel" in modo:
+        archivos = st.file_uploader("📂 Selecciona uno o varios archivos JSON", type=["json"], accept_multiple_files=True)
+        if archivos and st.button("🚀 Convertir a Excel"):
+            tipo_factura = "PGP" if "PGP" in modo else "EVENTO"
+            excel_data = json_to_excel(archivos, tipo_factura)
+            if excel_data:
+                st.download_button(
+                    "⬇️ Descargar Excel",
+                    data=excel_data,
+                    file_name=f"RIPS_Consolidado_{tipo_factura}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
 
+    elif "Excel ➜ JSON" in modo:
+        archivo_excel = st.file_uploader("📂 Selecciona archivo Excel", type=["xlsx"])
+        if archivo_excel and st.button("🚀 Convertir a JSON"):
+            tipo_factura = "PGP" if "PGP" in modo else "EVENTO"
+            resultado = excel_to_json(archivo_excel, tipo_factura, nit_obligado)
+
+        if resultado:
+            if resultado["tipo"] == "único":
+                st.download_button(
+                    "⬇️ Descargar JSON",
+                    data=resultado["contenido"].encode("utf-8"),
+                    file_name=resultado["nombre"],
+                    mime="application/json"
+                )
+            elif resultado["tipo"] == "zip":
+                buffer = BytesIO()
+                with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zipf:
+                    for nombre, contenido in resultado["contenido"].items():
+                        zipf.writestr(nombre, contenido)
+                buffer.seek(0)
+                st.download_button(
+                    "⬇️ Descargar ZIP de JSONs",
+                    data=buffer,
+                    file_name="RIPS_Evento_JSONs.zip",
+                    mime="application/zip"
+                )
+
+# Ejecuta con airbag
+guard(main)
