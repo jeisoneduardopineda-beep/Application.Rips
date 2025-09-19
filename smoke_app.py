@@ -19,6 +19,20 @@ import inspect as _inspect
 # ===========================================================
 import traceback
 
+# PyYAML
+try:
+    import yaml
+    from yaml.loader import SafeLoader
+except ModuleNotFoundError:
+    st.error("Falta PyYAML. Agrega 'PyYAML==6.0.2' a requirements.txt y vuelve a desplegar.")
+    st.stop()
+# streamlit-authenticator
+try:
+    import streamlit_authenticator as stauth
+except ModuleNotFoundError:
+    st.error("Falta 'streamlit-authenticator'. Agrega 'streamlit-authenticator==0.3.3' a requirements.txt y vuelve a desplegar.")
+    st.stop()
+
 def guard(fn):
     try:
         fn()
@@ -425,3 +439,4 @@ def main():
 
 # Ejecuta con airbag
 guard(main)
+
