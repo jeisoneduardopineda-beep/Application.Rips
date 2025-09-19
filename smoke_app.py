@@ -1,4 +1,5 @@
-# app.py — robusto para despliegue; muestra errores en pantalla y es compatible con streamlit-authenticator 0.2.x/0.3.x
+# app.py — robusto para despliegue; muestra errores en pantalla y
+# es compatible con streamlit-authenticator 0.2.x / 0.3.x
 
 import os
 import json
@@ -7,34 +8,50 @@ from io import BytesIO
 import re
 import base64
 from collections.abc import Mapping
+import time
+import traceback
+import inspect as _inspect
 
 import pandas as pd
 import streamlit as st
-import yaml
-from yaml.loader import SafeLoader
-import inspect as _inspect
-import time  # <- faltaba
-import streamlit_authenticator as stauth
-import traceback
 
-# ===========================================================
-# 0) Guard: muestra el traceback en la propia app si algo falla
-# ===========================================================
+# ──────────────────────────────────────────────────────────────────────────────
+# 0) CONFIG BÁSICA (nada de st.* antes de set_page_config)
+# ──────────────────────────────────────────────────────────────────────────────
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+LOGO_PATH = os.path.join(BASE_DIR, "medidatarips_logo.png")
+page_icon = LOGO_PATH if os.path.isfile(LOGO_PATH) else None
+
+st.set_page_config(
+    page_title="Transformador RIPS PGP & EVENTO",
+    layout="centered",
+    page_icon=page_icon
+)
+
+# sello de build para verificar redeploys
 st.caption(f"BUILD_MARK {int(time.time())}")
 
-# PyYAML
+# estilo mínimo
+st.markdown("<style>.block-container{padding-top:1.2rem}</style>", unsafe_allow_html=True)
+
+# Dependencias críticas con mensajes claros si faltan
 try:
     import yaml
     from yaml.loader import SafeLoader
 except ModuleNotFoundError:
     st.error("Falta PyYAML. Agrega 'PyYAML==6.0.2' a requirements.txt y vuelve a desplegar.")
     st.stop()
-# streamlit-authenticator
+
 try:
+    import streamlit_authenticator as stauth
 except ModuleNotFoundError:
     st.error("Falta 'streamlit-authenticator'. Agrega 'streamlit-authenticator==0.3.3' a requirements.txt y vuelve a desplegar.")
     st.stop()
 
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 1) AIRBAG: muestra tracebacks en pantalla
+# ──────────────────────────────────────────────────────────────────────────────
 def guard(fn):
     try:
         fn()
@@ -43,9 +60,10 @@ def guard(fn):
         st.code("".join(traceback.format_exception(e)), language="python")
         st.stop()
 
-# ===========================================================
-# 1) Utilidades generales
-# ===========================================================
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 2) UTILIDADES GENERALES
+# ──────────────────────────────────────────────────────────────────────────────
 def to_plain(x):
     """Convierte estructuras Secrets/YAML a dict/list planos."""
     if isinstance(x, Mapping):
@@ -54,12 +72,6 @@ def to_plain(x):
         return [to_plain(v) for v in x]
     return x
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-LOGO_PATH = os.path.join(BASE_DIR, "medidatarips_logo.png")
-
-page_icon = LOGO_PATH if os.path.isfile(LOGO_PATH) else None
-st.set_page_config(page_title="Transformador RIPS PGP & EVENTO", layout="centered", page_icon=page_icon)
-st.markdown("<style>.block-container{padding-top:1.2rem}</style>", unsafe_allow_html=True)
 
 def render_logo_left(path: str, height_px: int = 120):
     if not path or not os.path.isfile(path):
@@ -75,6 +87,7 @@ def render_logo_left(path: str, height_px: int = 120):
     except Exception as e:
         st.warning(f"No se pudo cargar el logo: {e}")
 
+
 def show_sidebar_logo():
     try:
         if os.path.isfile(LOGO_PATH):
@@ -84,16 +97,10 @@ def show_sidebar_logo():
     except Exception as e:
         st.sidebar.warning(f"No pude mostrar el logo: {e}")
 
-# ===========================================================
-# 2) Autenticación
-# ===========================================================
-try:
-    import streamlit_authenticator as stauth
-except Exception as e:
-    st.error("Falta 'streamlit-authenticator' en requirements.txt")
-    st.exception(e)
-    st.stop()
 
+# ──────────────────────────────────────────────────────────────────────────────
+# 3) AUTENTICACIÓN
+# ──────────────────────────────────────────────────────────────────────────────
 def load_auth_config():
     # 1) Secrets
     try:
@@ -121,6 +128,7 @@ def load_auth_config():
         st.exception(e)
         st.stop()
 
+
 def build_authenticator(config: dict):
     if "credentials" not in config or "cookie" not in config:
         st.error("Config inválida. Faltan 'credentials' o 'cookie'.")
@@ -132,44 +140,36 @@ def build_authenticator(config: dict):
             str(k).strip().lower(): v for k, v in config["credentials"]["usernames"].items()
         }
 
-    preauth_cfg = config.get("pre_authorized") or config.get("preauthorized") or {}
-    emails_list = preauth_cfg.get("emails", []) if isinstance(preauth_cfg, dict) else preauth_cfg
+    cookie = config["cookie"]
+    creds = config["credentials"]
+    pre   = config.get("preauthorized") or config.get("pre_authorized") or {}
 
+    # algunos config entregan dict con 'emails', otros lista directa
+    pre_emails = pre.get("emails", []) if isinstance(pre, dict) else pre
+
+    # 0.3.x: keywords con 'key' y 'preauthorized'
     try:
-        params = list(_inspect.signature(stauth.Authenticate.__init__).parameters.keys())
-        if "pre_authorized" in params:
-            return stauth.Authenticate(
-                credentials=config["credentials"],
-                cookie_name=config["cookie"]["name"],
-                cookie_key=config["cookie"]["key"],
-                cookie_expiry_days=config["cookie"]["expiry_days"],
-                pre_authorized=preauth_cfg,
-            )
-        elif "preauthorized" in params:
-            return stauth.Authenticate(
-                credentials=config["credentials"],
-                cookie_name=config["cookie"]["name"],
-                cookie_key=config["cookie"]["key"],
-                cookie_expiry_days=config["cookie"]["expiry_days"],
-                preauthorized=preauth_cfg,
-            )
-        else:
-            # Firma posicional (0.2.x)
-            return stauth.Authenticate(
-                config["credentials"],
-                config["cookie"]["name"],
-                config["cookie"]["key"],
-                config["cookie"]["expiry_days"],
-                emails_list,
-            )
-    except Exception as e:
-        st.error("No pude instanciar Authenticate. Revisa versión y config.")
-        st.exception(e)
-        st.stop()
+        return stauth.Authenticate(
+            credentials=creds,
+            cookie_name=cookie["name"],
+            key=cookie["key"],  # clave correcta para 0.3.x
+            cookie_expiry_days=float(cookie["expiry_days"]),
+            preauthorized=pre if isinstance(pre, dict) else {"emails": pre_emails},
+        )
+    except TypeError:
+        # 0.2.x: firma posicional
+        return stauth.Authenticate(
+            creds,
+            cookie["name"],
+            cookie["key"],
+            float(cookie["expiry_days"]),
+            pre_emails,
+        )
 
-# ===========================================================
-# 3) Dominio RIPS
-# ===========================================================
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 4) DOMINIO RIPS + TRANSFORMACIONES
+# ──────────────────────────────────────────────────────────────────────────────
 TIPOS_SERVICIOS = [
     "consultas", "procedimientos", "hospitalizacion", "hospitalizaciones",
     "urgencias", "reciennacidos", "medicamentos", "otrosServicios",
@@ -188,6 +188,7 @@ CAMPOS_CODIGOS = [
     "tipoMedicamento", "tipoOS", "codZonaTerritorialResidencia", "codMunicipioResidencia",
     "codPaisResidencia", "codPaisOrigen",
 ]
+
 
 def limpiar_valores(d):
     limpio = {}
@@ -224,6 +225,7 @@ def limpiar_valores(d):
             limpio[k] = v.strip() if isinstance(v, str) else str(v).strip()
     return limpio
 
+
 def json_to_excel(files, tipo_factura):
     datos = {tipo: [] for tipo in ["usuarios"] + list(set([s.lower() for s in TIPOS_SERVICIOS]))}
     for archivo in files:
@@ -233,6 +235,7 @@ def json_to_excel(files, tipo_factura):
             st.error(f"Archivo JSON inválido: {getattr(archivo,'name','<sin nombre>')}")
             st.exception(e)
             return None
+
         num_factura = data.get("numFactura", "SIN_FACTURA")
         archivo_origen = os.path.splitext(getattr(archivo, "name", "archivo"))[0]
         usuarios = data.get("usuarios", [])
@@ -264,6 +267,7 @@ def json_to_excel(files, tipo_factura):
                 df.to_excel(writer, sheet_name=sheet, index=False)
     output.seek(0)
     return output
+
 
 def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
     try:
@@ -354,15 +358,16 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
 
         return {"tipo": "zip", "contenido": salida_archivos}
 
-# ===========================================================
-# 4) UI principal
-# ===========================================================
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 5) UI PRINCIPAL
+# ──────────────────────────────────────────────────────────────────────────────
 def main():
     # Auth
     config = load_auth_config()
     authenticator = build_authenticator(config)
 
-    # Login (soporta firmas 0.2.x / 0.3.x)
+    # login (firma 0.2.x / 0.3.x)
     login_params = list(_inspect.signature(authenticator.login).parameters.keys())
     if login_params and login_params[0] == "location":
         name, auth_status, username = authenticator.login("main", "🔐 Iniciar sesión")
@@ -376,7 +381,7 @@ def main():
         st.warning("Por favor ingresa tus credenciales.")
         st.stop()
 
-    # Logout
+    # logout
     logout_params = list(_inspect.signature(authenticator.logout).parameters.keys())
     if logout_params and logout_params[0] == "button_name":
         authenticator.logout("🚪 Cerrar sesión", "sidebar")
@@ -439,7 +444,10 @@ def main():
                     mime="application/zip"
                 )
 
-# Ejecuta con airbag
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 6) BOOT CON AIRBAG
+# ──────────────────────────────────────────────────────────────────────────────
 guard(main)
 
 
