@@ -4,6 +4,8 @@ import streamlit as st
 print("BOOT: iniciando app.py")  # se ve en Logs al ejecutar
 import sys; print("BOOT: python", sys.version)
 
+st.caption(f"BUILD_MARK {time.time()}")  # si no cambia, no se re-desplegó nada
+
 
 st.title("Smoke test ✅")
 
