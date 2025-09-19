@@ -13,11 +13,13 @@ import streamlit as st
 import yaml
 from yaml.loader import SafeLoader
 import inspect as _inspect
+import time  # <- faltaba
 
 # ===========================================================
 # 0) Guard: muestra el traceback en la propia app si algo falla
 # ===========================================================
 import traceback
+st.caption(f"BUILD_MARK {int(time.time())}")
 
 # PyYAML
 try:
@@ -439,4 +441,5 @@ def main():
 
 # Ejecuta con airbag
 guard(main)
+
 
