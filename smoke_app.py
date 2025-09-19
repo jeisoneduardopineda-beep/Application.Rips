@@ -14,11 +14,12 @@ import yaml
 from yaml.loader import SafeLoader
 import inspect as _inspect
 import time  # <- faltaba
+import streamlit_authenticator as stauth
+import traceback
 
 # ===========================================================
 # 0) Guard: muestra el traceback en la propia app si algo falla
 # ===========================================================
-import traceback
 st.caption(f"BUILD_MARK {int(time.time())}")
 
 # PyYAML
@@ -30,7 +31,6 @@ except ModuleNotFoundError:
     st.stop()
 # streamlit-authenticator
 try:
-    import streamlit_authenticator as stauth
 except ModuleNotFoundError:
     st.error("Falta 'streamlit-authenticator'. Agrega 'streamlit-authenticator==0.3.3' a requirements.txt y vuelve a desplegar.")
     st.stop()
@@ -441,5 +441,6 @@ def main():
 
 # Ejecuta con airbag
 guard(main)
+
 
 
