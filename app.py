@@ -15,6 +15,10 @@ import inspect as _inspect
 import pandas as pd
 import streamlit as st
 
+# ★ NUEVO: para serializar tipos de numpy/pandas
+import numpy as np
+from datetime import date, datetime
+
 # ──────────────────────────────────────────────────────────────────────────────
 # 0) CONFIG BÁSICA (nada de st.* antes de set_page_config)
 # ──────────────────────────────────────────────────────────────────────────────
@@ -96,6 +100,27 @@ def show_sidebar_logo():
             st.sidebar.info("Sube 'medidatarips_logo.png' a la carpeta de la app.")
     except Exception as e:
         st.sidebar.warning(f"No pude mostrar el logo: {e}")
+
+# ★ NUEVO: serializador seguro para JSON (numpy/pandas -> tipos nativos)
+def json_friendly(o):
+    if isinstance(o, (np.integer,)):       # np.int64, etc.
+        return int(o)
+    if isinstance(o, (np.floating,)):      # np.float64, etc.
+        return float(o)
+    if isinstance(o, (np.bool_,)):         # np.bool_
+        return bool(o)
+    if isinstance(o, (pd.Timestamp, datetime, date)):
+        return o.isoformat()
+    if o is pd.NaT:
+        return None
+    try:
+        if pd.isna(o):                     # NaN, NA
+            return None
+    except Exception:
+        pass
+    if isinstance(o, (np.ndarray,)):
+        return o.tolist()
+    return str(o)                          # último recurso
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -282,6 +307,10 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
         st.error("❌ El archivo no contiene una hoja llamada 'usuarios'.")
         return None
 
+    # ★ BLINDAJE: evita NaN/NaT desde el inicio (opcional pero sano)
+    for k, df in dataframes.items():
+        dataframes[k] = df.where(pd.notna(df), None)
+
     usuarios_df = dataframes["usuarios"]
     tipos_servicios = [k for k in dataframes if k != "usuarios"]
 
@@ -320,7 +349,12 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
             "numNota": None,
             "usuarios": usuarios_final,
         }
-        return {"tipo": "único", "contenido": json.dumps(salida_json, ensure_ascii=False, indent=2), "nombre": f"Factura_RIPS_{tipo_factura}.json"}
+        # ★ CLAVE: usar default=json_friendly
+        return {
+            "tipo": "único",
+            "contenido": json.dumps(salida_json, ensure_ascii=False, indent=2, default=json_friendly),
+            "nombre": f"Factura_RIPS_{tipo_factura}.json"
+        }
 
     else:
         salida_archivos = {}
@@ -354,8 +388,11 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
                 "numNota": None,
                 "usuarios": usuarios_final,
             }
-            salida_archivos[f"{factura}_RIPS.json"] = json.dumps(salida_json, ensure_ascii=False, indent=2)
-           
+            # ★ CLAVE: usar default=json_friendly aquí también
+            salida_archivos[f"{factura}_RIPS.json"] = json.dumps(
+                salida_json, ensure_ascii=False, indent=2, default=json_friendly
+            )
+
         return {"tipo": "zip", "contenido": salida_archivos}
 
 
