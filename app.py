@@ -348,7 +348,7 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
                 usuarios_final.append(usuario_limpio)
 
             salida_json = {
-                "numDocumentoIdObligado": 900232301,
+                "numDocumentoIdObligado": nit_obligado,
                 "numFactura": factura,
                 "tipoNota": None,
                 "numNota": None,
@@ -449,6 +449,7 @@ def main():
 # 6) BOOT CON AIRBAG
 # ──────────────────────────────────────────────────────────────────────────────
 guard(main)
+
 
 
 
