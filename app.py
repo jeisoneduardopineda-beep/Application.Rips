@@ -355,6 +355,26 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
                 "usuarios": usuarios_final,
             }
             salida_archivos[f"{factura}_RIPS.json"] = json.dumps(salida_json, ensure_ascii=False, indent=2)
+            def json_friendly(o):
+    if isinstance(o, (np.integer,)):   # np.int64, etc.
+        return int(o)
+    if isinstance(o, (np.floating,)):  # np.float64, etc.
+        return float(o)
+    if isinstance(o, (np.bool_,)):     # np.bool_
+        return bool(o)
+    if isinstance(o, (pd.Timestamp, datetime, date)):
+        return o.isoformat()
+    if o is pd.NaT:
+        return None
+    # evita NaN/NA
+    try:
+        if pd.isna(o):
+            return None
+    except Exception:
+        pass
+    if isinstance(o, (np.ndarray,)):
+        return o.tolist()
+    return str(o)  # último recurso
 
         return {"tipo": "zip", "contenido": salida_archivos}
 
@@ -449,6 +469,7 @@ def main():
 # 6) BOOT CON AIRBAG
 # ──────────────────────────────────────────────────────────────────────────────
 guard(main)
+
 
 
 
