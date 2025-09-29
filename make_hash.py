@@ -5,7 +5,7 @@ passwords = {
     "jeison": "jeison1411",
     "operador": "operador2025",
     "auditor": "auditorSeg",
-    "admin": "Admin123!"
+    "": "Admin123!"
 }
 
 print("=== Hashes generados para config.yaml ===\n")
