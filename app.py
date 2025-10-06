@@ -212,7 +212,7 @@ CAMPOS_NUMERICOS = [
 ]
 
 CAMPOS_CODIGOS = [
-    "tipoUsuario", "viaIngresoServicioSalud", "modalidadGrupoServicioTecSal",
+    "tipoUsuario", "numFactura","viaIngresoServicioSalud", "modalidadGrupoServicioTecSal",
     "grupoServicios", "finalidadTecnologiaSalud", "conceptoRecaudo",
     "tipoMedicamento", "tipoOS", "codZonaTerritorialResidencia", "codMunicipioResidencia",
     "codPaisResidencia", "codPaisOrigen",
@@ -570,3 +570,4 @@ def main():
 # 6) BOOT CON AIRBAG
 # ──────────────────────────────────────────────────────────────────────────────
 guard(main)
+
