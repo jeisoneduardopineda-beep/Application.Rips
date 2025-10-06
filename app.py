@@ -126,6 +126,31 @@ def json_friendly(o):
         return o.tolist()
     return str(o)                          # último recurso
 
+# ★ Helper: forzar strings estables (numFactura)
+def _to_str_preserve(v):
+    """Convierte a string estable para numFactura sin perder ceros ni quedar '1234.0'."""
+    if v is None:
+        return None
+    try:
+        import math
+        if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+            return None
+    except Exception:
+        pass
+
+    if isinstance(v, (int, np.integer)):
+        return str(int(v))
+    if isinstance(v, (float, np.floating)):
+        if float(v).is_integer():
+            return str(int(v))
+        return format(float(v), "f").rstrip("0").rstrip(".")
+
+    s = str(v).strip()
+    s = re.sub(r"\.0$", "", s)
+    if s.lower() in {"nan", "none", ""}:
+        return None
+    return s
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # 3) AUTENTICACIÓN
@@ -211,8 +236,9 @@ CAMPOS_NUMERICOS = [
     "idMIPRES", "cantidadOS", "vrUnitOS",
 ]
 
+# ★ numFactura YA NO está aquí
 CAMPOS_CODIGOS = [
-    "tipoUsuario", "numFactura","viaIngresoServicioSalud", "modalidadGrupoServicioTecSal",
+    "tipoUsuario", "viaIngresoServicioSalud", "modalidadGrupoServicioTecSal",
     "grupoServicios", "finalidadTecnologiaSalud", "conceptoRecaudo",
     "tipoMedicamento", "tipoOS", "codZonaTerritorialResidencia", "codMunicipioResidencia",
     "codPaisResidencia", "codPaisOrigen",
@@ -257,6 +283,11 @@ def limpiar_valores(d):
             es_na = False
         if es_na or v is None or (isinstance(v, str) and v.strip() == ""):
             limpio[k] = None
+            continue
+
+        # ★ numFactura SIEMPRE como string
+        if k == "numFactura":
+            limpio[k] = _to_str_preserve(v)
             continue
 
         # ★ FECHAS por nombre (soporta variantes de escritura)
@@ -341,7 +372,8 @@ def json_to_excel(files, tipo_factura):
             st.exception(e)
             return None
 
-        num_factura = data.get("numFactura", "SIN_FACTURA")
+        # ★ numFactura como string confiable
+        num_factura = _to_str_preserve(data.get("numFactura", "SIN_FACTURA"))
         archivo_origen = os.path.splitext(getattr(archivo, "name", "archivo"))[0]
         usuarios = data.get("usuarios", [])
 
@@ -387,9 +419,12 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
         st.error("❌ El archivo no contiene una hoja llamada 'usuarios'.")
         return None
 
-    # BLINDAJE: evita NaN/NaT desde el inicio
+    # ★ BLINDAJE: evita NaN/NaT y fuerza numFactura a TEXTO en todas las hojas
     for k, df in dataframes.items():
-        dataframes[k] = df.where(pd.notna(df), None)
+        df = df.where(pd.notna(df), None)
+        if "numFactura" in df.columns:
+            df["numFactura"] = df["numFactura"].apply(_to_str_preserve)
+        dataframes[k] = df
 
     usuarios_df = dataframes["usuarios"]
     tipos_servicios = [k for k in dataframes if k != "usuarios"]
@@ -400,7 +435,7 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
             st.error("❌ Para PGP solo se permite una única factura.")
             return None
 
-        factura = facturas[0]
+        factura = _to_str_preserve(facturas[0])
         usuarios_final = []
 
         for _, usuario in usuarios_df.iterrows():
@@ -424,7 +459,7 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
 
         salida_json = {
             "numDocumentoIdObligado": nit_obligado,
-            "numFactura": factura,
+            "numFactura": _to_str_preserve(factura),  # ★ string garantizado
             "tipoNota": None,
             "numNota": None,
             "usuarios": usuarios_final,
@@ -441,6 +476,8 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
     else:
         salida_archivos = {}
         for factura in usuarios_df["numFactura"].dropna().unique():
+            factura_str = _to_str_preserve(factura)
+
             usuarios_factura = usuarios_df[usuarios_df["numFactura"] == factura]
             usuarios_final = []
 
@@ -465,7 +502,7 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
 
             salida_json = {
                 "numDocumentoIdObligado": nit_obligado,
-                "numFactura": factura,
+                "numFactura": factura_str,  # ★ string
                 "tipoNota": None,
                 "numNota": None,
                 "usuarios": usuarios_final,
@@ -473,7 +510,7 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
             # ★ PASO FINAL: normaliza fechas en todo el payload
             salida_json = normalize_dates_recursive(salida_json)
 
-            salida_archivos[f"{factura}_RIPS.json"] = json.dumps(
+            salida_archivos[f"{factura_str}_RIPS.json"] = json.dumps(
                 salida_json, ensure_ascii=False, indent=2, default=json_friendly
             )
 
@@ -570,4 +607,3 @@ def main():
 # 6) BOOT CON AIRBAG
 # ──────────────────────────────────────────────────────────────────────────────
 guard(main)
-
