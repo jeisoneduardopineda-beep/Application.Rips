@@ -227,6 +227,15 @@ DATETIME_KEYS = {
     "fechaDispensaAdmOn", "fechaAplicacion", "fechaAdministracion"
 }
 
+# --- Helpers de claves y sets canónicos ---
+FECHA_PREFIX = "fecha"
+
+def _canon(k: str) -> str:
+    return re.sub(r"\s+", "", str(k or "")).strip().lower()
+
+DATE_ONLY_CANON  = {_canon(k) for k in DATE_ONLY_KEYS}
+DATETIME_CANON   = {_canon(k) for k in DATETIME_KEYS}
+
 def _fmt_date_only(val):
     ts = pd.to_datetime(val, errors="coerce")
     return None if pd.isna(ts) else ts.strftime("%Y-%m-%d")
@@ -239,6 +248,8 @@ def _fmt_datetime_min(val):
 def limpiar_valores(d):
     limpio = {}
     for k, v in d.items():
+        kc = _canon(k)  # clave normalizada
+
         # nulos
         try:
             es_na = pd.isna(v)
@@ -248,11 +259,11 @@ def limpiar_valores(d):
             limpio[k] = None
             continue
 
-        # ★ FECHAS
-        if k in DATE_ONLY_KEYS:
+        # ★ FECHAS por nombre (soporta variantes de escritura)
+        if (k in DATE_ONLY_KEYS) or (kc in DATE_ONLY_CANON):
             limpio[k] = _fmt_date_only(v)
             continue
-        if k in DATETIME_KEYS:
+        if (k in DATETIME_KEYS) or (kc in DATETIME_CANON):
             limpio[k] = _fmt_datetime_min(v)
             continue
 
@@ -283,6 +294,41 @@ def limpiar_valores(d):
         # Resto: texto plano
         limpio[k] = v.strip() if isinstance(v, str) else str(v).strip()
     return limpio
+
+
+# ---- Paso final anti "00:00:00" para TODO el payload ----
+def _normalize_scalar_date(key, val):
+    kc = _canon(key) if key is not None else ""
+
+    # sets explícitos
+    if kc in DATE_ONLY_CANON:
+        return _fmt_date_only(val)
+    if kc in DATETIME_CANON:
+        return _fmt_datetime_min(val)
+
+    # heurística: cualquier campo que empiece por 'fecha'
+    if kc.startswith(FECHA_PREFIX):
+        ts = pd.to_datetime(val, errors="coerce")
+        if not pd.isna(ts):
+            return ts.strftime("%Y-%m-%d") if (ts.hour == 0 and ts.minute == 0 and ts.second == 0) \
+                                           else ts.strftime("%Y-%m-%d %H:%M")
+
+    # si viene texto con 00:00:00, córtalo
+    if isinstance(val, str) and re.match(r"^\d{4}-\d{2}-\d{2}(?: 00:00:00)?$", val):
+        return val[:10]
+
+    # timestamps sueltos
+    if isinstance(val, (pd.Timestamp, datetime, date)):
+        return json_friendly(val)
+
+    return val
+
+def normalize_dates_recursive(obj, parent_key=None):
+    if isinstance(obj, dict):
+        return {k: normalize_dates_recursive(v, k) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [normalize_dates_recursive(x, parent_key) for x in obj]
+    return _normalize_scalar_date(parent_key, obj)
 
 
 def json_to_excel(files, tipo_factura):
@@ -383,6 +429,9 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
             "numNota": None,
             "usuarios": usuarios_final,
         }
+        # ★ PASO FINAL: normaliza fechas en todo el payload
+        salida_json = normalize_dates_recursive(salida_json)
+
         return {
             "tipo": "único",
             "contenido": json.dumps(salida_json, ensure_ascii=False, indent=2, default=json_friendly),
@@ -421,6 +470,9 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
                 "numNota": None,
                 "usuarios": usuarios_final,
             }
+            # ★ PASO FINAL: normaliza fechas en todo el payload
+            salida_json = normalize_dates_recursive(salida_json)
+
             salida_archivos[f"{factura}_RIPS.json"] = json.dumps(
                 salida_json, ensure_ascii=False, indent=2, default=json_friendly
             )
@@ -467,7 +519,7 @@ def main():
     modo = st.radio(
         "Selecciona el tipo de conversión:",
         ["📥 JSON ➜ Excel (PGP)", "📤 Excel ➜ JSON (PGP)",
-         "📥 JSON ➜ Excel (Evento)", "📤 Excel ➜ JSON (Evento)"]
+        "📥 JSON ➜ Excel (Evento)", "📤 Excel ➜ JSON (Evento)"]
     )
 
     nit_obligado = st.text_input("🔢 NIT del Obligado a Facturar", value="900364721")
