@@ -15,7 +15,7 @@ import inspect as _inspect
 import pandas as pd
 import streamlit as st
 
-# ★ NUEVO: para serializar tipos de numpy/pandas
+# ★ para serializar tipos de numpy/pandas
 import numpy as np
 from datetime import date, datetime
 
@@ -101,7 +101,7 @@ def show_sidebar_logo():
     except Exception as e:
         st.sidebar.warning(f"No pude mostrar el logo: {e}")
 
-# ★ NUEVO: serializador seguro para JSON (numpy/pandas -> tipos nativos)
+# ★ SERIALIZADOR JSON AMIGABLE (sin 'T', fecha vs fecha-hora coherente)
 def json_friendly(o):
     if isinstance(o, (np.integer,)):       # np.int64, etc.
         return int(o)
@@ -109,8 +109,6 @@ def json_friendly(o):
         return float(o)
     if isinstance(o, (np.bool_,)):         # np.bool_
         return bool(o)
-    if isinstance(o, (pd.Timestamp, datetime, date)):
-        return o.isoformat()
     if o is pd.NaT:
         return None
     try:
@@ -118,6 +116,12 @@ def json_friendly(o):
             return None
     except Exception:
         pass
+    if isinstance(o, (pd.Timestamp, datetime)):
+        # si viene justo a medianoche, sácalo como fecha
+        return o.strftime("%Y-%m-%d") if (o.hour == 0 and o.minute == 0 and o.second == 0) \
+                                      else o.strftime("%Y-%m-%d %H:%M")
+    if isinstance(o, date):
+        return o.strftime("%Y-%m-%d")
     if isinstance(o, (np.ndarray,)):
         return o.tolist()
     return str(o)                          # último recurso
@@ -214,18 +218,45 @@ CAMPOS_CODIGOS = [
     "codPaisResidencia", "codPaisOrigen",
 ]
 
+# ★ CLAVES DE FECHA Y FECHA-HORA (ajusta si agregas nuevas)
+DATE_ONLY_KEYS = {
+    "fechaNacimiento", "fechaInicioAtencion", "fechaOrden", "fechaIngreso",
+    "fechaEgreso", "fechaToma", "fechaResultado", "fechaConsulta"
+}
+DATETIME_KEYS = {
+    "fechaDispensaAdmOn", "fechaAplicacion", "fechaAdministracion"
+}
+
+def _fmt_date_only(val):
+    ts = pd.to_datetime(val, errors="coerce")
+    return None if pd.isna(ts) else ts.strftime("%Y-%m-%d")
+
+def _fmt_datetime_min(val):
+    ts = pd.to_datetime(val, errors="coerce")
+    return None if pd.isna(ts) else ts.strftime("%Y-%m-%d %H:%M")
+
 
 def limpiar_valores(d):
     limpio = {}
     for k, v in d.items():
+        # nulos
         try:
             es_na = pd.isna(v)
         except Exception:
             es_na = False
-        if es_na:
+        if es_na or v is None or (isinstance(v, str) and v.strip() == ""):
             limpio[k] = None
             continue
 
+        # ★ FECHAS
+        if k in DATE_ONLY_KEYS:
+            limpio[k] = _fmt_date_only(v)
+            continue
+        if k in DATETIME_KEYS:
+            limpio[k] = _fmt_datetime_min(v)
+            continue
+
+        # codMunicipioResidencia con cero a la izquierda (5 dígitos)
         if k == "codMunicipioResidencia":
             s = str(v).strip()
             s = re.sub(r"\.0$", "", s)
@@ -233,21 +264,24 @@ def limpiar_valores(d):
             limpio[k] = s.zfill(5) if s else None
             continue
 
+        # Campos numéricos
         if k in CAMPOS_NUMERICOS:
             try:
-                if isinstance(v, str) and v.strip() == "":
-                    limpio[k] = None
-                else:
-                    fv = float(v)
-                    limpio[k] = int(fv) if fv.is_integer() else fv
+                fv = float(v)
+                limpio[k] = int(fv) if fv.is_integer() else fv
             except Exception:
                 limpio[k] = None
-        elif k in CAMPOS_CODIGOS:
+            continue
+
+        # Códigos de 2 dígitos (si aplica)
+        if k in CAMPOS_CODIGOS:
             s = str(v).strip()
             s = re.sub(r"\.0$", "", s)
             limpio[k] = s.zfill(2) if s else None
-        else:
-            limpio[k] = v.strip() if isinstance(v, str) else str(v).strip()
+            continue
+
+        # Resto: texto plano
+        limpio[k] = v.strip() if isinstance(v, str) else str(v).strip()
     return limpio
 
 
@@ -307,7 +341,7 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
         st.error("❌ El archivo no contiene una hoja llamada 'usuarios'.")
         return None
 
-    # ★ BLINDAJE: evita NaN/NaT desde el inicio (opcional pero sano)
+    # BLINDAJE: evita NaN/NaT desde el inicio
     for k, df in dataframes.items():
         dataframes[k] = df.where(pd.notna(df), None)
 
@@ -349,7 +383,6 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
             "numNota": None,
             "usuarios": usuarios_final,
         }
-        # ★ CLAVE: usar default=json_friendly
         return {
             "tipo": "único",
             "contenido": json.dumps(salida_json, ensure_ascii=False, indent=2, default=json_friendly),
@@ -388,7 +421,6 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
                 "numNota": None,
                 "usuarios": usuarios_final,
             }
-            # ★ CLAVE: usar default=json_friendly aquí también
             salida_archivos[f"{factura}_RIPS.json"] = json.dumps(
                 salida_json, ensure_ascii=False, indent=2, default=json_friendly
             )
@@ -486,12 +518,3 @@ def main():
 # 6) BOOT CON AIRBAG
 # ──────────────────────────────────────────────────────────────────────────────
 guard(main)
-
-
-
-
-
-
-
-
-
