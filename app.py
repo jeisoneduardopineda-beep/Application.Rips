@@ -213,12 +213,6 @@ CAMPOS_CODIGOS = [
     "tipoMedicamento", "tipoOS", "codZonaTerritorialResidencia", "codMunicipioResidencia",
     "codPaisResidencia", "codPaisOrigen",
 ]
-DATE_ONLY_COLS = ["fechaNacimiento", "fechaInicioAtencion", "fechaOrden",
-                  "fechaIngreso", "fechaEgreso", "fechaToma", "fechaResultado"]
-
-for col in DATE_ONLY_COLS:
-    if col in df.columns:
-        df[col] = pd.to_datetime(df[col], errors="coerce").dt.strftime("%Y-%m-%d")
 
 
 def limpiar_valores(d):
@@ -492,6 +486,7 @@ def main():
 # 6) BOOT CON AIRBAG
 # ──────────────────────────────────────────────────────────────────────────────
 guard(main)
+
 
 
 
