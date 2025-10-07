@@ -246,7 +246,7 @@ CAMPOS_CODIGOS = [
 
 # ★ CLAVES DE FECHA Y FECHA-HORA (ajusta si agregas nuevas)
 DATE_ONLY_KEYS = {
-    "fechaNacimiento", "fechaInicioAtencion", "fechaOrden", "fechaIngreso",
+    "fechaNacimiento","fechaOrden", "fechaIngreso",
     "fechaEgreso", "fechaToma", "fechaResultado", "fechaConsulta"
 }
 DATETIME_KEYS = {
@@ -607,3 +607,4 @@ def main():
 # 6) BOOT CON AIRBAG
 # ──────────────────────────────────────────────────────────────────────────────
 guard(main)
+
