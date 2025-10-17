@@ -241,7 +241,7 @@ CAMPOS_CODIGOS = [
     "tipoUsuario", "viaIngresoServicioSalud", "modalidadGrupoServicioTecSal",
     "grupoServicios", "finalidadTecnologiaSalud", "conceptoRecaudo",
     "tipoMedicamento", "tipoOS", "codZonaTerritorialResidencia", "codMunicipioResidencia",
-    "codPaisResidencia", "codPaisOrigen","numAutorizacion","codPrestador","codProcedimiento",
+    "codPaisResidencia", "codPaisOrigen","numAutorizacion","codPrestador","codProcedimiento","numDocumentoIdentificacion"
 ]
 
 # ★ CLAVES DE FECHA Y FECHA-HORA (ajusta si agregas nuevas)
@@ -607,5 +607,6 @@ def main():
 # 6) BOOT CON AIRBAG
 # ──────────────────────────────────────────────────────────────────────────────
 guard(main)
+
 
 
