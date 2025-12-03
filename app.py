@@ -555,7 +555,7 @@ def main():
 
     modo = st.radio(
         "Selecciona el tipo de conversión:",
-        ["📥 JSON ➜ Excel (PGP)", "📤 Excel ➜ JSON (PGP)",
+        ["📥 JSON ➜ Excel (PGP-CAPITA)", "📤 Excel ➜ JSON (PGP-CAPITA)",
         "📥 JSON ➜ Excel (Evento)", "📤 Excel ➜ JSON (Evento)"]
     )
 
@@ -607,6 +607,7 @@ def main():
 # 6) BOOT CON AIRBAG
 # ──────────────────────────────────────────────────────────────────────────────
 guard(main)
+
 
 
 
