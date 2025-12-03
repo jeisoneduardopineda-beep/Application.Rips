@@ -551,7 +551,7 @@ def main():
     # UI
     show_sidebar_logo()
     render_logo_left(LOGO_PATH, height_px=90)
-    st.subheader("📄 Transformador RIPS: PGP y EVENTO")
+    st.subheader("📄 Transformador RIPS: PGP, CAPITA y EVENTO")
 
     modo = st.radio(
         "Selecciona el tipo de conversión:",
@@ -607,6 +607,7 @@ def main():
 # 6) BOOT CON AIRBAG
 # ──────────────────────────────────────────────────────────────────────────────
 guard(main)
+
 
 
 
