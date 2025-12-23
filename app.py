@@ -95,7 +95,7 @@ def render_logo_left(path: str, height_px: int = 120):
 def show_sidebar_logo():
     try:
         if os.path.isfile(LOGO_PATH):
-            st.sidebar.image(LOGO_PATH, use_container_width=True)
+            st.sidebar.image(LOGO_PATH, use_column_width=True)
         else:
             st.sidebar.info("Sube 'medidatarips_logo.png' a la carpeta de la app.")
     except Exception as e:
@@ -607,6 +607,7 @@ def main():
 # 6) BOOT CON AIRBAG
 # ──────────────────────────────────────────────────────────────────────────────
 guard(main)
+
 
 
 
