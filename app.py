@@ -244,7 +244,7 @@ CAMPOS_CODIGOS = [
     "codMunicipioResidencia", "codPaisResidencia", "codPaisOrigen",
     "numAutorizacion", "codPrestador", "codProcedimiento",
     "numDocumentoIdentificacion", "condicionDestinoUsuarioEgreso",
-    "tipoDiagnosticoPrincipal"
+    "tipoDiagnosticoPrincipal","codProcedimiento"
 ]
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -633,3 +633,4 @@ def main():
 # 6) BOOT CON AIRBAG
 # ──────────────────────────────────────────────────────────────────────────────
 guard(main)
+
