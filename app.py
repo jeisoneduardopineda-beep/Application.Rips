@@ -1,4 +1,4 @@
-# app.py — robusto para despliegue; muestra errores en pantalla y
+ # app.py — robusto para despliegue; muestra errores en pantalla y
 # es compatible con streamlit-authenticator 0.2.x / 0.3.x
 
 import os
@@ -101,30 +101,30 @@ def show_sidebar_logo():
     except Exception as e:
         st.sidebar.warning(f"No pude mostrar el logo: {e}")
 
+
 # ★ SERIALIZADOR JSON AMIGABLE (sin 'T', fecha vs fecha-hora coherente)
 def json_friendly(o):
-    if isinstance(o, (np.integer,)):       # np.int64, etc.
+    if isinstance(o, (np.integer,)):
         return int(o)
-    if isinstance(o, (np.floating,)):      # np.float64, etc.
+    if isinstance(o, (np.floating,)):
         return float(o)
-    if isinstance(o, (np.bool_,)):         # np.bool_
+    if isinstance(o, (np.bool_,)):
         return bool(o)
     if o is pd.NaT:
         return None
     try:
-        if pd.isna(o):                     # NaN, NA
+        if pd.isna(o):
             return None
     except Exception:
         pass
     if isinstance(o, (pd.Timestamp, datetime)):
-        # si viene justo a medianoche, sácalo como fecha
-        return o.strftime("%Y-%m-%d") if (o.hour == 0 and o.minute == 0 and o.second == 0) \
-                                      else o.strftime("%Y-%m-%d %H:%M")
+        return o.strftime("%Y-%m-%d %H:%M")
     if isinstance(o, date):
         return o.strftime("%Y-%m-%d")
     if isinstance(o, (np.ndarray,)):
         return o.tolist()
-    return str(o)                          # último recurso
+    return str(o)
+
 
 # ★ Helper: forzar strings estables (numFactura)
 def _to_str_preserve(v):
@@ -170,6 +170,7 @@ def load_auth_config():
             return cfg
     except Exception:
         pass
+
     # 2) YAML local
     try:
         with open(os.path.join(BASE_DIR, "config.yaml"), "r", encoding="utf-8") as f:
@@ -198,7 +199,6 @@ def build_authenticator(config: dict):
     creds = config["credentials"]
     pre   = config.get("preauthorized") or config.get("pre_authorized") or {}
 
-    # algunos config entregan dict con 'emails', otros lista directa
     pre_emails = pre.get("emails", []) if isinstance(pre, dict) else pre
 
     # 0.3.x: keywords con 'key' y 'preauthorized'
@@ -206,7 +206,7 @@ def build_authenticator(config: dict):
         return stauth.Authenticate(
             credentials=creds,
             cookie_name=cookie["name"],
-            key=cookie["key"],  # clave correcta para 0.3.x
+            key=cookie["key"],
             cookie_expiry_days=float(cookie["expiry_days"]),
             preauthorized=pre if isinstance(pre, dict) else {"emails": pre_emails},
         )
@@ -236,24 +236,32 @@ CAMPOS_NUMERICOS = [
     "idMIPRES", "cantidadOS", "vrUnitOS",
 ]
 
-# ★ numFactura YA NO está aquí
+# ⚠️ ojo: esto aplica zfill(2), revisa que todos realmente sean códigos de 2 dígitos
 CAMPOS_CODIGOS = [
     "tipoUsuario", "viaIngresoServicioSalud", "modalidadGrupoServicioTecSal",
     "grupoServicios", "finalidadTecnologiaSalud", "conceptoRecaudo",
-    "tipoMedicamento", "tipoOS", "codZonaTerritorialResidencia", "codMunicipioResidencia",
-    "codPaisResidencia", "codPaisOrigen","numAutorizacion","codPrestador","codProcedimiento","numDocumentoIdentificacion","condicionDestinoUsuarioEgreso","tipoDiagnosticoPrincipal"
+    "tipoMedicamento", "tipoOS", "codZonaTerritorialResidencia",
+    "codMunicipioResidencia", "codPaisResidencia", "codPaisOrigen",
+    "numAutorizacion", "codPrestador", "codProcedimiento",
+    "numDocumentoIdentificacion", "condicionDestinoUsuarioEgreso",
+    "tipoDiagnosticoPrincipal"
 ]
 
-# ★ CLAVES DE FECHA Y FECHA-HORA (ajusta si agregas nuevas)
+# ──────────────────────────────────────────────────────────────────────────────
+# ★ AJUSTE PEDIDO: FECHAS ESTRICTAS
+# fechaNacimiento = DATE ONLY
+# resto = DATETIME ALWAYS (YYYY-MM-DD HH:MM)
+# ──────────────────────────────────────────────────────────────────────────────
 DATE_ONLY_KEYS = {
-    "fechaNacimiento","fechaOrden", "fechaIngreso",
-    "fechaEgreso", "fechaToma", "fechaResultado", "fechaConsulta"
+    "fechaNacimiento"
 }
+
 DATETIME_KEYS = {
+    "fechaOrden", "fechaIngreso",
+    "fechaEgreso", "fechaToma", "fechaResultado", "fechaConsulta",
     "fechaDispensaAdmOn", "fechaAplicacion", "fechaAdministracion"
 }
 
-# --- Helpers de claves y sets canónicos ---
 FECHA_PREFIX = "fecha"
 
 def _canon(k: str) -> str:
@@ -268,38 +276,42 @@ def _fmt_date_only(val):
 
 def _fmt_datetime_min(val):
     ts = pd.to_datetime(val, errors="coerce")
-    return None if pd.isna(ts) else ts.strftime("%Y-%m-%d %H:%M")
+    if pd.isna(ts):
+        return None
+    return ts.strftime("%Y-%m-%d %H:%M")
 
 
 def limpiar_valores(d):
     limpio = {}
     for k, v in d.items():
-        kc = _canon(k)  # clave normalizada
+        kc = _canon(k)
 
         # nulos
         try:
             es_na = pd.isna(v)
         except Exception:
             es_na = False
+
         if es_na or v is None or (isinstance(v, str) and v.strip() == ""):
             limpio[k] = None
             continue
 
         # ★ numFactura SIEMPRE como string
-        if k == "numFactura":
+        if kc == "numfactura":
             limpio[k] = _to_str_preserve(v)
             continue
 
-        # ★ FECHAS por nombre (soporta variantes de escritura)
-        if (k in DATE_ONLY_KEYS) or (kc in DATE_ONLY_CANON):
+        # ★ FECHAS ESTRICTAS
+        if kc in DATE_ONLY_CANON:
             limpio[k] = _fmt_date_only(v)
             continue
-        if (k in DATETIME_KEYS) or (kc in DATETIME_CANON):
+
+        if kc in DATETIME_CANON:
             limpio[k] = _fmt_datetime_min(v)
             continue
 
         # codMunicipioResidencia con cero a la izquierda (5 dígitos)
-        if k == "codMunicipioResidencia":
+        if kc == "codmunicipioresidencia":
             s = str(v).strip()
             s = re.sub(r"\.0$", "", s)
             s = re.sub(r"\D", "", s)
@@ -324,35 +336,38 @@ def limpiar_valores(d):
 
         # Resto: texto plano
         limpio[k] = v.strip() if isinstance(v, str) else str(v).strip()
+
     return limpio
 
 
-# ---- Paso final anti "00:00:00" para TODO el payload ----
 def _normalize_scalar_date(key, val):
     kc = _canon(key) if key is not None else ""
 
-    # sets explícitos
+    # reglas estrictas
     if kc in DATE_ONLY_CANON:
         return _fmt_date_only(val)
+
     if kc in DATETIME_CANON:
         return _fmt_datetime_min(val)
 
-    # heurística: cualquier campo que empiece por 'fecha'
+    # heurística: cualquier campo que empiece por fecha => datetime
     if kc.startswith(FECHA_PREFIX):
         ts = pd.to_datetime(val, errors="coerce")
         if not pd.isna(ts):
-            return ts.strftime("%Y-%m-%d") if (ts.hour == 0 and ts.minute == 0 and ts.second == 0) \
-                                           else ts.strftime("%Y-%m-%d %H:%M")
+            return ts.strftime("%Y-%m-%d %H:%M")
 
-    # si viene texto con 00:00:00, córtalo
-    if isinstance(val, str) and re.match(r"^\d{4}-\d{2}-\d{2}(?: 00:00:00)?$", val):
-        return val[:10]
+    # si viene texto con 00:00:00, convertir a HH:MM
+    if isinstance(val, str) and re.match(r"^\d{4}-\d{2}-\d{2} 00:00:00$", val):
+        return val[:16]
 
-    # timestamps sueltos
-    if isinstance(val, (pd.Timestamp, datetime, date)):
-        return json_friendly(val)
+    if isinstance(val, (pd.Timestamp, datetime)):
+        return val.strftime("%Y-%m-%d %H:%M")
+
+    if isinstance(val, date):
+        return val.strftime("%Y-%m-%d")
 
     return val
+
 
 def normalize_dates_recursive(obj, parent_key=None):
     if isinstance(obj, dict):
@@ -364,6 +379,7 @@ def normalize_dates_recursive(obj, parent_key=None):
 
 def json_to_excel(files, tipo_factura):
     datos = {tipo: [] for tipo in ["usuarios"] + list(set([s.lower() for s in TIPOS_SERVICIOS]))}
+
     for archivo in files:
         try:
             data = json.load(archivo)
@@ -372,7 +388,6 @@ def json_to_excel(files, tipo_factura):
             st.exception(e)
             return None
 
-        # ★ numFactura como string confiable
         num_factura = _to_str_preserve(data.get("numFactura", "SIN_FACTURA"))
         archivo_origen = os.path.splitext(getattr(archivo, "name", "archivo"))[0]
         usuarios = data.get("usuarios", [])
@@ -402,6 +417,7 @@ def json_to_excel(files, tipo_factura):
                 df = pd.DataFrame(registros)
                 sheet = tipo.capitalize()[:31]
                 df.to_excel(writer, sheet_name=sheet, index=False)
+
     output.seek(0)
     return output
 
@@ -441,6 +457,7 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
         for _, usuario in usuarios_df.iterrows():
             usuario_dict = usuario.to_dict()
             doc = usuario_dict.get("numDocumentoIdentificacion") or usuario_dict.get("documento_usuario")
+
             usuario_limpio = limpiar_valores(usuario_dict)
             usuario_limpio.pop("archivo_origen", None)
             usuario_limpio.pop("numFactura", None)
@@ -449,6 +466,7 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
             for tipo in tipos_servicios:
                 df_tipo = dataframes[tipo]
                 registros = df_tipo[df_tipo["documento_usuario"] == doc]
+
                 if not registros.empty:
                     registros = registros.drop(columns=["numFactura", "documento_usuario", "archivo_origen"], errors="ignore")
                     registros_limpios = [limpiar_valores(r) for _, r in registros.iterrows()]
@@ -459,12 +477,12 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
 
         salida_json = {
             "numDocumentoIdObligado": nit_obligado,
-            "numFactura": _to_str_preserve(factura),  # ★ string garantizado
+            "numFactura": _to_str_preserve(factura),
             "tipoNota": None,
             "numNota": None,
             "usuarios": usuarios_final,
         }
-        # ★ PASO FINAL: normaliza fechas en todo el payload
+
         salida_json = normalize_dates_recursive(salida_json)
 
         return {
@@ -475,15 +493,17 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
 
     else:
         salida_archivos = {}
+
         for factura in usuarios_df["numFactura"].dropna().unique():
             factura_str = _to_str_preserve(factura)
 
-            usuarios_factura = usuarios_df[usuarios_df["numFactura"] == factura]
+            usuarios_factura = usuarios_df[usuarios_df["numFactura"] == factura_str]
             usuarios_final = []
 
             for _, usuario in usuarios_factura.iterrows():
                 usuario_dict = usuario.to_dict()
                 doc = usuario_dict.get("numDocumentoIdentificacion") or usuario_dict.get("documento_usuario")
+
                 usuario_limpio = limpiar_valores(usuario_dict)
                 usuario_limpio.pop("archivo_origen", None)
                 usuario_limpio.pop("numFactura", None)
@@ -491,7 +511,12 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
                 servicios_dict = {}
                 for tipo in tipos_servicios:
                     df_tipo = dataframes[tipo]
-                    registros = df_tipo[(df_tipo["numFactura"] == factura) & (df_tipo["documento_usuario"] == doc)]
+
+                    registros = df_tipo[
+                        (df_tipo["numFactura"] == factura_str) &
+                        (df_tipo["documento_usuario"] == doc)
+                    ]
+
                     if not registros.empty:
                         registros = registros.drop(columns=["numFactura", "documento_usuario", "archivo_origen"], errors="ignore")
                         registros_limpios = [limpiar_valores(r) for _, r in registros.iterrows()]
@@ -502,12 +527,12 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
 
             salida_json = {
                 "numDocumentoIdObligado": nit_obligado,
-                "numFactura": factura_str,  # ★ string
+                "numFactura": factura_str,
                 "tipoNota": None,
                 "numNota": None,
                 "usuarios": usuarios_final,
             }
-            # ★ PASO FINAL: normaliza fechas en todo el payload
+
             salida_json = normalize_dates_recursive(salida_json)
 
             salida_archivos[f"{factura_str}_RIPS.json"] = json.dumps(
@@ -521,7 +546,6 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
 # 5) UI PRINCIPAL
 # ──────────────────────────────────────────────────────────────────────────────
 def main():
-    # Auth
     config = load_auth_config()
     authenticator = build_authenticator(config)
 
@@ -548,15 +572,15 @@ def main():
     else:
         authenticator.logout("🚪 Cerrar sesión")
 
-    # UI
     show_sidebar_logo()
     render_logo_left(LOGO_PATH, height_px=90)
+
     st.subheader("📄 Transformador RIPS MODALIDAD: PGP, CAPITA y EVENTO")
 
     modo = st.radio(
         "Selecciona el tipo de conversión:",
         ["📥 JSON ➜ Excel (PGP-CAPITA)", "📤 Excel ➜ JSON (PGP-CAPITA)",
-        "📥 JSON ➜ Excel (Evento)", "📤 Excel ➜ JSON (Evento)"]
+         "📥 JSON ➜ Excel (Evento)", "📤 Excel ➜ JSON (Evento)"]
     )
 
     nit_obligado = st.text_input("🔢 NIT del Obligado a Facturar", value="900364721")
@@ -565,8 +589,9 @@ def main():
     if "JSON ➜ Excel" in modo:
         archivos = st.file_uploader("📂 Selecciona uno o varios archivos JSON", type=["json"], accept_multiple_files=True)
         if archivos and st.button("🚀 Convertir a Excel"):
-            tipo_factura = "PGP" if "PGP" in modo else "EVENTO"
+            tipo_factura = "PGP" if "PGP-CAPITA" in modo else "EVENTO"
             excel_data = json_to_excel(archivos, tipo_factura)
+
             if excel_data:
                 st.download_button(
                     "⬇️ Descargar Excel",
@@ -578,7 +603,7 @@ def main():
     elif "Excel ➜ JSON" in modo:
         archivo_excel = st.file_uploader("📂 Selecciona archivo Excel", type=["xlsx"])
         if archivo_excel and st.button("🚀 Convertir a JSON"):
-            tipo_factura = "PGP" if "PGP" in modo else "EVENTO"
+            tipo_factura = "PGP" if "PGP-CAPITA" in modo else "EVENTO"
             resultado = excel_to_json(archivo_excel, tipo_factura, nit_obligado)
 
         if resultado:
@@ -595,6 +620,7 @@ def main():
                     for nombre, contenido in resultado["contenido"].items():
                         zipf.writestr(nombre, contenido)
                 buffer.seek(0)
+
                 st.download_button(
                     "⬇️ Descargar ZIP de JSONs",
                     data=buffer,
@@ -607,12 +633,3 @@ def main():
 # 6) BOOT CON AIRBAG
 # ──────────────────────────────────────────────────────────────────────────────
 guard(main)
-
-
-
-
-
-
-
-
-
