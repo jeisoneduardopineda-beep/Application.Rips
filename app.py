@@ -244,7 +244,7 @@ CAMPOS_CODIGOS = [
     "codMunicipioResidencia", "codPaisResidencia", "codPaisOrigen",
     "numAutorizacion", "codPrestador", "codProcedimiento",
     "numDocumentoIdentificacion", "condicionDestinoUsuarioEgreso",
-    "tipoDiagnosticoPrincipal","codProcedimiento"
+    "tipoDiagnosticoPrincipal","codProcedimiento","otrosServicios"
 ]
 
 # ──────────────────────────────────────────────────────────────────────────────
