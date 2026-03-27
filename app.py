@@ -44,7 +44,7 @@ CAMPOS_TEXTO = {
     "conceptoRecaudo","numFEVPagoModerador","idMIPRES",
     "codDiagnosticoRelacionado","tipoMedicamento",
     "codTecnologiaSalud","nomTecnologiaSalud",
-    "unidadMedida","formaFarmaceutica","cantidadMedicamento",
+    "unidadMedida","formaFarmaceutica",
     "codProcedimiento","viaIngresoServicioSalud",
     "codComplicacion","codDiagnosticoPrincipalE",
     "condicionDestinoUsuarioEgreso"
