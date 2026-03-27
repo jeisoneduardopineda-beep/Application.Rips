@@ -55,7 +55,11 @@ CAMPOS_NUMERICOS = {
     "valorPagoModerador",
     "consecutivo",
     "codServicio",
-    "concentracionMedicamento"
+    "concentracionMedicamento",
+    "unidadMinDispensa",
+    "cantidadMedicamento",
+    "diasTratamiento",
+    "vrUnitMedicamento"
 }
 
 # ========================= FUNCION TIPADO =========================
