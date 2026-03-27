@@ -1,4 +1,5 @@
-# app.py — robusto para despliegue; muestra errores en pantalla
+# app.py — robusto para despliegue; muestra errores en pantalla y
+# es compatible con streamlit-authenticator 0.2.x / 0.3.x
 
 import os
 import json
@@ -31,39 +32,66 @@ st.caption(f"BUILD_MARK {int(time.time())}")
 st.markdown("<style>.block-container{padding-top:1.2rem}</style>", unsafe_allow_html=True)
 
 # ========================= NUEVO =========================
-CAMPOS_NUMERICOS = {
-    "numDocumentoIdObligado",
-    "codPrestador",
-    "codPaisOrigen",
-    "numDocumentoIdentificacion",
-    "cantidadMedicamento",
-    "conceptoRecaudo"
+CAMPOS_TEXTO = {
+    "numDocumentoIdObligado","numFactura","tipoNota","numNota",
+    "tipoDocumentoIdentificacion","numDocumentoIdentificacion","tipoUsuario",
+    "codSexo","codPaisResidencia","codMunicipioResidencia",
+    "codZonaTerritorialResidencia","incapacidad","codPaisOrigen",
+    "codPrestador","numAutorizacion","codConsulta",
+    "modalidadGrupoServicioTecSal","grupoServicios","codServicio",
+    "finalidadTecnologiaSalud","causaMotivoAtencion",
+    "codDiagnosticoPrincipal","codDiagnosticoRelacionado1",
+    "codDiagnosticoRelacionado2","codDiagnosticoRelacionado3",
+    "tipoDiagnosticoPrincipal","conceptoRecaudo",
+    "numFEVPagoModerador","idMIPRES","codDiagnosticoRelacionado",
+    "tipoMedicamento","codTecnologiaSalud","nomTecnologiaSalud",
+    "unidadMedida","formaFarmaceutica","cantidadMedicamento",
+    "codProcedimiento","viaIngresoServicioSalud",
+    "codComplicacion","codDiagnosticoPrincipalE",
+    "condicionDestinoUsuarioEgreso"
 }
 
-def tipar_valores(diccionario):
+def forzar_texto_y_null(diccionario):
     if isinstance(diccionario, dict):
         for k, v in diccionario.items():
 
             if isinstance(v, dict):
-                diccionario[k] = tipar_valores(v)
+                diccionario[k] = forzar_texto_y_null(v)
 
             elif isinstance(v, list):
-                diccionario[k] = [tipar_valores(i) if isinstance(i, dict) else i for i in v]
+                diccionario[k] = [
+                    forzar_texto_y_null(i) if isinstance(i, dict) else i
+                    for i in v
+                ]
 
             else:
-                if k in CAMPOS_NUMERICOS:
-                    try:
-                        if v is None or v == "":
-                            diccionario[k] = None
-                        else:
-                            diccionario[k] = int(float(v))
-                    except:
-                        diccionario[k] = None
+                if k in CAMPOS_TEXTO:
+                    if v is None or v == "" or str(v).lower() in ["nan", "none"]:
+                        diccionario[k] = "null"
+                    else:
+                        diccionario[k] = str(v).strip()
                 else:
-                    diccionario[k] = v
+                    if v is None or str(v).lower() in ["nan", "none"]:
+                        diccionario[k] = None
+                    else:
+                        diccionario[k] = v
 
     return diccionario
 # =======================================================
+
+try:
+    import yaml
+    from yaml.loader import SafeLoader
+except ModuleNotFoundError:
+    st.error("Falta PyYAML. Agrega 'PyYAML==6.0.2'")
+    st.stop()
+
+try:
+    import streamlit_authenticator as stauth
+except ModuleNotFoundError:
+    st.error("Falta streamlit-authenticator==0.3.3")
+    st.stop()
+
 
 def guard(fn):
     try:
@@ -108,7 +136,7 @@ def json_friendly(o):
     if isinstance(o, date):
         return o.strftime("%Y-%m-%d")
 
-    return o  # 🔥 CAMBIO CLAVE (antes era str(o))
+    return o
 
 
 def _to_str_preserve(v):
@@ -219,6 +247,7 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
         return None
 
     for k, df in dataframes.items():
+
         df = df.where(pd.notna(df), None)
 
         if "numFactura" in df.columns:
@@ -274,8 +303,7 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
             usuario_limpio["servicios"] = servicios_dict
             usuarios_final.append(usuario_limpio)
 
-        # 🔥 AQUI SE APLICA EL TIPADO
-        salida_json = tipar_valores({
+        salida_json = forzar_texto_y_null({
             "numDocumentoIdObligado": nit_obligado,
             "numFactura": factura_str,
             "tipoNota": None,
