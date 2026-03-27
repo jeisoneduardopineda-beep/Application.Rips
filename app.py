@@ -31,20 +31,20 @@ st.set_page_config(
 st.caption(f"BUILD_MARK {int(time.time())}")
 st.markdown("<style>.block-container{padding-top:1.2rem}</style>", unsafe_allow_html=True)
 
-# ========================= NUEVO =========================
+# ========================= AJUSTE CONTROLADO =========================
 CAMPOS_TEXTO = {
     "numDocumentoIdObligado","numFactura","tipoNota","numNota",
     "tipoDocumentoIdentificacion","numDocumentoIdentificacion","tipoUsuario",
     "codSexo","codPaisResidencia","codMunicipioResidencia",
-    "codZonaTerritorialResidencia","incapacidad","codPaisOrigen",
-    "codPrestador","numAutorizacion","codConsulta",
-    "modalidadGrupoServicioTecSal","grupoServicios","codServicio",
-    "finalidadTecnologiaSalud","causaMotivoAtencion",
-    "codDiagnosticoPrincipal","codDiagnosticoRelacionado1",
-    "codDiagnosticoRelacionado2","codDiagnosticoRelacionado3",
-    "tipoDiagnosticoPrincipal","conceptoRecaudo",
-    "numFEVPagoModerador","idMIPRES","codDiagnosticoRelacionado",
-    "tipoMedicamento","codTecnologiaSalud","nomTecnologiaSalud",
+    "codZonaTerritorialResidencia","incapacidad",
+    "numAutorizacion","codConsulta","modalidadGrupoServicioTecSal",
+    "grupoServicios","codServicio","finalidadTecnologiaSalud",
+    "causaMotivoAtencion","codDiagnosticoPrincipal",
+    "codDiagnosticoRelacionado1","codDiagnosticoRelacionado2",
+    "codDiagnosticoRelacionado3","tipoDiagnosticoPrincipal",
+    "conceptoRecaudo","numFEVPagoModerador","idMIPRES",
+    "codDiagnosticoRelacionado","tipoMedicamento",
+    "codTecnologiaSalud","nomTecnologiaSalud",
     "unidadMedida","formaFarmaceutica","cantidadMedicamento",
     "codProcedimiento","viaIngresoServicioSalud",
     "codComplicacion","codDiagnosticoPrincipalE",
@@ -69,7 +69,7 @@ def forzar_texto_y_null(diccionario):
                     if v is None or v == "" or str(v).lower() in ["nan", "none"]:
                         diccionario[k] = "null"
                     else:
-                        diccionario[k] = str(v)  # 🔥 sin strip
+                        diccionario[k] = str(v)  # 🔥 mantiene ceros
                 else:
                     if v is None or str(v).lower() in ["nan", "none"]:
                         diccionario[k] = None
@@ -179,34 +179,56 @@ MAPA_SERVICIOS_JSON = {
 
 
 def json_to_excel(files, tipo_factura):
-    # SIN CAMBIOS
+
     datos = {tipo: [] for tipo in ["usuarios"] + list(set([s.lower() for s in TIPOS_SERVICIOS]))}
+
     for archivo in files:
+
         data = json.load(archivo)
+
         num_factura = _to_str_preserve(data.get("numFactura"))
+
         archivo_origen = os.path.splitext(getattr(archivo, "name", "archivo"))[0]
+
         usuarios = data.get("usuarios", [])
+
         for usuario in usuarios:
+
             servicios = usuario.get("servicios", {})
+
             usuario_limpio = usuario.copy()
+
             usuario_limpio.pop("servicios", None)
+
             usuario_limpio["archivo_origen"] = archivo_origen
             usuario_limpio["numFactura"] = num_factura
+
             datos["usuarios"].append(usuario_limpio)
+
             for tipo, registros in servicios.items():
+
                 tipo_normalizado = tipo.lower()
+
                 if tipo_normalizado in datos:
+
                     for reg in registros:
+
                         reg = reg.copy()
+
                         reg["numFactura"] = num_factura
                         reg["documento_usuario"] = usuario.get("numDocumentoIdentificacion")
                         reg["archivo_origen"] = archivo_origen
+
                         datos[tipo_normalizado].append(reg)
 
     output = BytesIO()
+
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
+
         for tipo, registros in datos.items():
+
             if registros:
+
                 df = pd.DataFrame(registros)
                 sheet = tipo.capitalize()[:31]
                 df.to_excel(writer, sheet_name=sheet, index=False)
@@ -217,7 +239,7 @@ def json_to_excel(files, tipo_factura):
 
 def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
 
-    # 🔥 CLAVE REAL
+    # 🔥 evita perder ceros
     xlsx = pd.read_excel(archivo_excel, sheet_name=None, dtype=str)
 
     dataframes = {str(k).lower(): v for k, v in xlsx.items()}
@@ -227,7 +249,12 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
         return None
 
     for k, df in dataframes.items():
+
         df = df.where(pd.notna(df), None)
+
+        if "numFactura" in df.columns:
+            df["numFactura"] = df["numFactura"].apply(_to_str_preserve)
+
         dataframes[k] = df
 
     usuarios_df = dataframes["usuarios"]
@@ -246,9 +273,11 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
         for _, usuario in usuarios_factura.iterrows():
 
             usuario_dict = usuario.to_dict()
+
             doc = usuario_dict.get("numDocumentoIdentificacion") or usuario_dict.get("documento_usuario")
 
             usuario_limpio = usuario_dict.copy()
+
             usuario_limpio.pop("archivo_origen", None)
             usuario_limpio.pop("numFactura", None)
 
@@ -270,12 +299,16 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
                         errors="ignore"
                     )
 
-                    registros_limpios = [r.to_dict() for _, r in registros.iterrows()]
+                    registros_limpios = []
+
+                    for _, r in registros.iterrows():
+                        registros_limpios.append(r.to_dict())
 
                     tipo_json = MAPA_SERVICIOS_JSON.get(tipo.lower(), tipo)
                     servicios_dict[tipo_json] = registros_limpios
 
             usuario_limpio["servicios"] = servicios_dict
+
             usuarios_final.append(usuario_limpio)
 
         salida_json = forzar_texto_y_null({
@@ -367,6 +400,7 @@ def main():
                 with zipfile.ZipFile(buffer, "w") as zipf:
 
                     for nombre, contenido in resultado["contenido"].items():
+
                         zipf.writestr(nombre, contenido)
 
                 buffer.seek(0)
