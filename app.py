@@ -54,7 +54,8 @@ CAMPOS_NUMERICOS = {
     "vrServicio",
     "valorPagoModerador",
     "consecutivo",
-    "codServicio"
+    "codServicio",
+    "concentracionMedicamento"
 }
 
 # ========================= FUNCION TIPADO =========================
