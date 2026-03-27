@@ -59,7 +59,8 @@ CAMPOS_NUMERICOS = {
     "unidadMinDispensa",
     "cantidadMedicamento",
     "diasTratamiento",
-    "vrUnitMedicamento"
+    "vrUnitMedicamento",
+    "unidadMedida"
 }
 
 # ========================= FUNCION TIPADO =========================
