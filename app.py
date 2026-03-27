@@ -76,7 +76,7 @@ def forzar_tipos(diccionario):
 
                 if k in CAMPOS_TEXTO:
                     if v is None or v == "" or str(v).lower() in ["nan", "none"]:
-                        diccionario[k] = null
+                        diccionario[k] = "null"
                     else:
                         diccionario[k] = str(v)
 
