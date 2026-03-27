@@ -43,8 +43,7 @@ CAMPOS_TEXTO = {
     "codDiagnosticoRelacionado3","tipoDiagnosticoPrincipal",
     "conceptoRecaudo","numFEVPagoModerador","idMIPRES",
     "codDiagnosticoRelacionado","tipoMedicamento",
-    "codTecnologiaSalud","nomTecnologiaSalud",
-    "unidadMedida","formaFarmaceutica",
+    "codTecnologiaSalud","nomTecnologiaSalud","formaFarmaceutica",
     "codProcedimiento","viaIngresoServicioSalud",
     "codComplicacion","codDiagnosticoPrincipalE",
     "condicionDestinoUsuarioEgreso"
