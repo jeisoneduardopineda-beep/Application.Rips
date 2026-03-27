@@ -1,5 +1,4 @@
-# app.py — robusto para despliegue; muestra errores en pantalla y
-# es compatible con streamlit-authenticator 0.2.x / 0.3.x
+# app.py — robusto para despliegue
 
 import os
 import json
@@ -10,11 +9,9 @@ import base64
 from collections.abc import Mapping
 import time
 import traceback
-import inspect as _inspect
 
 import pandas as pd
 import streamlit as st
-
 import numpy as np
 from datetime import date, datetime
 
@@ -28,58 +25,42 @@ st.set_page_config(
     page_icon=page_icon
 )
 
-st.caption(f"BUILD_MARK {int(time.time())}")
-st.markdown("<style>.block-container{padding-top:1.2rem}</style>", unsafe_allow_html=True)
+# ========================= CAMPOS NUMERICOS =========================
+CAMPOS_NUMERICOS = {
+    "numDocumentoIdObligado",
+    "codPrestador",
+    "codPaisOrigen",
+    "numDocumentoIdentificacion",
+    "cantidadMedicamento",
+    "conceptoRecaudo"
+}
 
-try:
-    import yaml
-    from yaml.loader import SafeLoader
-except ModuleNotFoundError:
-    st.error("Falta PyYAML. Agrega 'PyYAML==6.0.2'")
-    st.stop()
+# ========================= TIPADOR =========================
+def tipar_valores(diccionario):
+    if isinstance(diccionario, dict):
+        for k, v in diccionario.items():
 
-try:
-    import streamlit_authenticator as stauth
-except ModuleNotFoundError:
-    st.error("Falta streamlit-authenticator==0.3.3")
-    st.stop()
+            if isinstance(v, dict):
+                diccionario[k] = tipar_valores(v)
 
+            elif isinstance(v, list):
+                diccionario[k] = [tipar_valores(i) if isinstance(i, dict) else i for i in v]
 
-def guard(fn):
-    try:
-        fn()
-    except Exception as e:
-        st.error("Excepción en tiempo de ejecución")
-        st.code("".join(traceback.format_exception(e)), language="python")
-        st.stop()
+            else:
+                if k in CAMPOS_NUMERICOS:
+                    try:
+                        if v is None or v == "":
+                            diccionario[k] = None
+                        else:
+                            diccionario[k] = int(float(v))
+                    except:
+                        diccionario[k] = None
+                else:
+                    diccionario[k] = v
 
+    return diccionario
 
-def to_plain(x):
-    if isinstance(x, Mapping):
-        return {k: to_plain(v) for k, v in x.items()}
-    if isinstance(x, (list, tuple)):
-        return [to_plain(v) for v in x]
-    return x
-
-
-def render_logo_left(path: str, height_px: int = 120):
-    if not path or not os.path.isfile(path):
-        return
-    with open(path, "rb") as f:
-        b64 = base64.b64encode(f.read()).decode()
-
-    st.markdown(
-        f'<div style="display:flex;">'
-        f'<img src="data:image/png;base64,{b64}" style="height:{height_px}px;"></div>',
-        unsafe_allow_html=True
-    )
-
-
-def show_sidebar_logo():
-    if os.path.isfile(LOGO_PATH):
-        st.sidebar.image(LOGO_PATH, use_column_width=True)
-
-
+# ========================= JSON FRIENDLY =========================
 def json_friendly(o):
 
     if isinstance(o, (np.integer,)):
@@ -106,8 +87,17 @@ def json_friendly(o):
     if isinstance(o, date):
         return o.strftime("%Y-%m-%d")
 
-    return str(o)
+    return o  # 🔥 ya no convierte todo a string
 
+# ========================= FUNCIONES BASE =========================
+
+def guard(fn):
+    try:
+        fn()
+    except Exception as e:
+        st.error("Excepción en tiempo de ejecución")
+        st.code("".join(traceback.format_exception(e)), language="python")
+        st.stop()
 
 def _to_str_preserve(v):
 
@@ -123,7 +113,6 @@ def _to_str_preserve(v):
         return format(float(v), "f").rstrip("0").rstrip(".")
 
     s = str(v).strip()
-
     s = re.sub(r"\.0$", "", s)
 
     if s.lower() in {"nan", "none", ""}:
@@ -131,18 +120,10 @@ def _to_str_preserve(v):
 
     return s
 
-
 TIPOS_SERVICIOS = [
-    "consultas",
-    "procedimientos",
-    "hospitalizacion",
-    "hospitalizaciones",
-    "urgencias",
-    "reciennacidos",
-    "medicamentos",
-    "otrosServicios"
+    "consultas","procedimientos","hospitalizacion","hospitalizaciones",
+    "urgencias","reciennacidos","medicamentos","otrosServicios"
 ]
-
 
 MAPA_SERVICIOS_JSON = {
     "consultas": "consultas",
@@ -155,93 +136,14 @@ MAPA_SERVICIOS_JSON = {
     "otrosservicios": "otrosServicios"
 }
 
-
-def json_to_excel(files, tipo_factura):
-
-    datos = {tipo: [] for tipo in ["usuarios"] + list(set([s.lower() for s in TIPOS_SERVICIOS]))}
-
-    for archivo in files:
-
-        data = json.load(archivo)
-
-        num_factura = _to_str_preserve(data.get("numFactura"))
-
-        archivo_origen = os.path.splitext(getattr(archivo, "name", "archivo"))[0]
-
-        usuarios = data.get("usuarios", [])
-
-        for usuario in usuarios:
-
-            servicios = usuario.get("servicios", {})
-
-            usuario_limpio = usuario.copy()
-
-            usuario_limpio.pop("servicios", None)
-
-            usuario_limpio["archivo_origen"] = archivo_origen
-
-            usuario_limpio["numFactura"] = num_factura
-
-            datos["usuarios"].append(usuario_limpio)
-
-            for tipo, registros in servicios.items():
-
-                tipo_normalizado = tipo.lower()
-
-                if tipo_normalizado in datos:
-
-                    for reg in registros:
-
-                        reg = reg.copy()
-
-                        reg["numFactura"] = num_factura
-
-                        reg["documento_usuario"] = usuario.get("numDocumentoIdentificacion")
-
-                        reg["archivo_origen"] = archivo_origen
-
-                        datos[tipo_normalizado].append(reg)
-
-    output = BytesIO()
-
-    with pd.ExcelWriter(output, engine="openpyxl") as writer:
-
-        for tipo, registros in datos.items():
-
-            if registros:
-
-                df = pd.DataFrame(registros)
-
-                sheet = tipo.capitalize()[:31]
-
-                df.to_excel(writer, sheet_name=sheet, index=False)
-
-    output.seek(0)
-
-    return output
-
+# ========================= EXCEL ➜ JSON =========================
 
 def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
 
     xlsx = pd.read_excel(archivo_excel, sheet_name=None)
-
     dataframes = {str(k).lower(): v for k, v in xlsx.items()}
 
-    if "usuarios" not in dataframes:
-        st.error("El Excel no contiene hoja usuarios")
-        return None
-
-    for k, df in dataframes.items():
-
-        df = df.where(pd.notna(df), None)
-
-        if "numFactura" in df.columns:
-            df["numFactura"] = df["numFactura"].apply(_to_str_preserve)
-
-        dataframes[k] = df
-
     usuarios_df = dataframes["usuarios"]
-
     tipos_servicios = [k for k in dataframes if k != "usuarios"]
 
     salida_archivos = {}
@@ -251,7 +153,6 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
     for factura in facturas:
 
         factura_str = _to_str_preserve(factura)
-
         usuarios_final = []
 
         usuarios_factura = usuarios_df[usuarios_df["numFactura"] == factura_str]
@@ -259,13 +160,9 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
         for _, usuario in usuarios_factura.iterrows():
 
             usuario_dict = usuario.to_dict()
-
-            doc = usuario_dict.get("numDocumentoIdentificacion") or usuario_dict.get("documento_usuario")
+            doc = usuario_dict.get("numDocumentoIdentificacion")
 
             usuario_limpio = usuario_dict.copy()
-
-            usuario_limpio.pop("archivo_origen", None)
-
             usuario_limpio.pop("numFactura", None)
 
             servicios_dict = {}
@@ -282,31 +179,25 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
                 if not registros.empty:
 
                     registros = registros.drop(
-                        columns=["numFactura", "documento_usuario", "archivo_origen"],
+                        columns=["numFactura", "documento_usuario"],
                         errors="ignore"
                     )
 
-                    registros_limpios = []
-
-                    for _, r in registros.iterrows():
-
-                        registros_limpios.append(r.to_dict())
+                    registros_limpios = [r.to_dict() for _, r in registros.iterrows()]
 
                     tipo_json = MAPA_SERVICIOS_JSON.get(tipo.lower(), tipo)
-
                     servicios_dict[tipo_json] = registros_limpios
 
             usuario_limpio["servicios"] = servicios_dict
-
             usuarios_final.append(usuario_limpio)
 
-        salida_json = {
+        salida_json = tipar_valores({
             "numDocumentoIdObligado": nit_obligado,
             "numFactura": factura_str,
             "tipoNota": None,
             "numNota": None,
             "usuarios": usuarios_final
-        }
+        })
 
         salida_archivos[f"{factura_str}_RIPS.json"] = json.dumps(
             salida_json,
@@ -315,90 +206,32 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
             default=json_friendly
         )
 
-    if tipo_factura == "PGP":
-
-        contenido = list(salida_archivos.values())[0]
-
-        return {
-            "tipo": "único",
-            "contenido": contenido,
-            "nombre": f"Factura_RIPS_{tipo_factura}.json"
-        }
-
     return {"tipo": "zip", "contenido": salida_archivos}
 
+# ========================= MAIN =========================
 
 def main():
 
     st.subheader("Transformador RIPS PGP & EVENTO")
 
-    modo = st.radio(
-        "Tipo de conversión",
-        [
-            "JSON ➜ Excel (PGP-CAPITA)",
-            "Excel ➜ JSON (PGP-CAPITA)",
-            "JSON ➜ Excel (Evento)",
-            "Excel ➜ JSON (Evento)"
-        ]
-    )
+    archivo_excel = st.file_uploader("Sube Excel", type=["xlsx"])
 
-    nit_obligado = st.text_input("NIT obligado", value="900364721")
+    if archivo_excel and st.button("Convertir"):
 
-    resultado = None
+        resultado = excel_to_json(archivo_excel, "PGP", "900364721")
 
-    if "JSON ➜ Excel" in modo:
+        buffer = BytesIO()
 
-        archivos = st.file_uploader("Sube JSON", type=["json"], accept_multiple_files=True)
+        with zipfile.ZipFile(buffer, "w") as zipf:
+            for nombre, contenido in resultado["contenido"].items():
+                zipf.writestr(nombre, contenido)
 
-        if archivos and st.button("Convertir"):
+        buffer.seek(0)
 
-            tipo_factura = "PGP" if "PGP-CAPITA" in modo else "EVENTO"
-
-            excel_data = json_to_excel(archivos, tipo_factura)
-
-            st.download_button(
-                "Descargar Excel",
-                data=excel_data,
-                file_name=f"RIPS_Consolidado_{tipo_factura}.xlsx"
-            )
-
-    elif "Excel ➜ JSON" in modo:
-
-        archivo_excel = st.file_uploader("Sube Excel", type=["xlsx"])
-
-        if archivo_excel and st.button("Convertir"):
-
-            tipo_factura = "PGP" if "PGP-CAPITA" in modo else "EVENTO"
-
-            resultado = excel_to_json(archivo_excel, tipo_factura, nit_obligado)
-
-        if resultado:
-
-            if resultado["tipo"] == "único":
-
-                st.download_button(
-                    "Descargar JSON",
-                    data=resultado["contenido"].encode("utf-8"),
-                    file_name=resultado["nombre"]
-                )
-
-            else:
-
-                buffer = BytesIO()
-
-                with zipfile.ZipFile(buffer, "w") as zipf:
-
-                    for nombre, contenido in resultado["contenido"].items():
-
-                        zipf.writestr(nombre, contenido)
-
-                buffer.seek(0)
-
-                st.download_button(
-                    "Descargar ZIP",
-                    data=buffer,
-                    file_name="RIPS_Evento_JSONs.zip"
-                )
-
+        st.download_button(
+            "Descargar ZIP",
+            data=buffer,
+            file_name="RIPS_JSON.zip"
+        )
 
 guard(main)
