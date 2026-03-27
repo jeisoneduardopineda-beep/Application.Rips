@@ -69,7 +69,7 @@ def forzar_texto_y_null(diccionario):
                     if v is None or v == "" or str(v).lower() in ["nan", "none"]:
                         diccionario[k] = "null"
                     else:
-                        diccionario[k] = str(v).strip()
+                        diccionario[k] = str(v)  # 🔥 sin strip
                 else:
                     if v is None or str(v).lower() in ["nan", "none"]:
                         diccionario[k] = None
@@ -152,7 +152,7 @@ def _to_str_preserve(v):
             return str(int(v))
         return format(float(v), "f").rstrip("0").rstrip(".")
 
-    s = str(v).strip()
+    s = str(v)
     s = re.sub(r"\.0$", "", s)
 
     if s.lower() in {"nan", "none", ""}:
@@ -179,56 +179,34 @@ MAPA_SERVICIOS_JSON = {
 
 
 def json_to_excel(files, tipo_factura):
-
+    # SIN CAMBIOS
     datos = {tipo: [] for tipo in ["usuarios"] + list(set([s.lower() for s in TIPOS_SERVICIOS]))}
-
     for archivo in files:
-
         data = json.load(archivo)
-
         num_factura = _to_str_preserve(data.get("numFactura"))
-
         archivo_origen = os.path.splitext(getattr(archivo, "name", "archivo"))[0]
-
         usuarios = data.get("usuarios", [])
-
         for usuario in usuarios:
-
             servicios = usuario.get("servicios", {})
-
             usuario_limpio = usuario.copy()
-
             usuario_limpio.pop("servicios", None)
-
             usuario_limpio["archivo_origen"] = archivo_origen
             usuario_limpio["numFactura"] = num_factura
-
             datos["usuarios"].append(usuario_limpio)
-
             for tipo, registros in servicios.items():
-
                 tipo_normalizado = tipo.lower()
-
                 if tipo_normalizado in datos:
-
                     for reg in registros:
-
                         reg = reg.copy()
-
                         reg["numFactura"] = num_factura
                         reg["documento_usuario"] = usuario.get("numDocumentoIdentificacion")
                         reg["archivo_origen"] = archivo_origen
-
                         datos[tipo_normalizado].append(reg)
 
     output = BytesIO()
-
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
-
         for tipo, registros in datos.items():
-
             if registros:
-
                 df = pd.DataFrame(registros)
                 sheet = tipo.capitalize()[:31]
                 df.to_excel(writer, sheet_name=sheet, index=False)
@@ -239,7 +217,9 @@ def json_to_excel(files, tipo_factura):
 
 def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
 
-    xlsx = pd.read_excel(archivo_excel, sheet_name=None)
+    # 🔥 CLAVE REAL
+    xlsx = pd.read_excel(archivo_excel, sheet_name=None, dtype=str)
+
     dataframes = {str(k).lower(): v for k, v in xlsx.items()}
 
     if "usuarios" not in dataframes:
@@ -247,12 +227,7 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
         return None
 
     for k, df in dataframes.items():
-
         df = df.where(pd.notna(df), None)
-
-        if "numFactura" in df.columns:
-            df["numFactura"] = df["numFactura"].apply(_to_str_preserve)
-
         dataframes[k] = df
 
     usuarios_df = dataframes["usuarios"]
