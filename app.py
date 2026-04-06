@@ -1,4 +1,4 @@
-# app.py — robusto para despliegue
+# -*- coding: utf-8 -*-
 
 import os
 import json
@@ -28,6 +28,30 @@ st.set_page_config(
 
 st.caption(f"BUILD_MARK {int(time.time())}")
 st.markdown("<style>.block-container{padding-top:1.2rem}</style>", unsafe_allow_html=True)
+
+# ========================= AUTENTICACION =========================
+
+USUARIOS = {
+    "admin": "1234",
+    "facturacion1": "rips2024",
+    "facturacion2": "rips2024",
+    "auditoria": "audit2024"
+}
+
+def login():
+    st.title("🔐 Inicio de sesión")
+
+    usuario = st.text_input("Usuario")
+    password = st.text_input("Contraseña", type="password")
+
+    if st.button("Ingresar"):
+        if usuario in USUARIOS and USUARIOS[usuario] == password:
+            st.session_state["autenticado"] = True
+            st.session_state["usuario"] = usuario
+            st.success("Acceso concedido")
+            st.rerun()
+        else:
+            st.error("Credenciales incorrectas")
 
 # ========================= CONFIG TIPOS =========================
 
@@ -80,7 +104,6 @@ def forzar_tipos(diccionario):
                 ]
 
             else:
-
                 if k in CAMPOS_TEXTO:
                     if v is None or v == "" or str(v).lower() in ["nan", "none"]:
                         diccionario[k] = None
@@ -129,7 +152,6 @@ def json_friendly(o):
         return o.strftime("%Y-%m-%d")
     return o
 
-
 def _to_str_preserve(v):
     if v is None:
         return None
@@ -163,19 +185,14 @@ def json_to_excel(files, tipo_factura):
     for archivo in files:
 
         data = json.load(archivo)
-
         num_factura = _to_str_preserve(data.get("numFactura"))
-
         archivo_origen = os.path.splitext(getattr(archivo, "name", "archivo"))[0]
-
         usuarios = data.get("usuarios", [])
 
         for usuario in usuarios:
 
             servicios = usuario.get("servicios", {})
-
             usuario_limpio = usuario.copy()
-
             usuario_limpio.pop("servicios", None)
 
             usuario_limpio["archivo_origen"] = archivo_origen
@@ -192,7 +209,6 @@ def json_to_excel(files, tipo_factura):
                     for reg in registros:
 
                         reg = reg.copy()
-
                         reg["numFactura"] = num_factura
                         reg["documento_usuario"] = usuario.get("numDocumentoIdentificacion")
                         reg["archivo_origen"] = archivo_origen
@@ -202,11 +218,8 @@ def json_to_excel(files, tipo_factura):
     output = BytesIO()
 
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
-
         for tipo, registros in datos.items():
-
             if registros:
-
                 df = pd.DataFrame(registros)
                 sheet = tipo.capitalize()[:31]
                 df.to_excel(writer, sheet_name=sheet, index=False)
@@ -219,7 +232,6 @@ def json_to_excel(files, tipo_factura):
 def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
 
     xlsx = pd.read_excel(archivo_excel, sheet_name=None, dtype=str)
-
     dataframes = {str(k).lower(): v for k, v in xlsx.items()}
 
     if "usuarios" not in dataframes:
@@ -271,7 +283,6 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
                     )
 
                     registros_limpios = [r.to_dict() for _, r in registros.iterrows()]
-
                     tipo_json = MAPA_SERVICIOS_JSON.get(tipo.lower(), tipo)
                     servicios_dict[tipo_json] = registros_limpios
 
@@ -294,9 +305,7 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
         )
 
     if tipo_factura == "PGP":
-
         contenido = list(salida_archivos.values())[0]
-
         return {
             "tipo": "único",
             "contenido": contenido,
@@ -308,6 +317,19 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
 # ========================= MAIN =========================
 
 def main():
+
+    if "autenticado" not in st.session_state:
+        st.session_state["autenticado"] = False
+
+    if not st.session_state["autenticado"]:
+        login()
+        return
+
+    st.sidebar.write(f"Usuario: {st.session_state['usuario']}")
+
+    if st.sidebar.button("Cerrar sesión"):
+        st.session_state["autenticado"] = False
+        st.rerun()
 
     st.subheader("Transformador RIPS PGP & EVENTO")
 
@@ -378,7 +400,6 @@ def main():
                     file_name="RIPS_Evento_JSONs.zip"
                 )
 
-
 def guard(fn):
     try:
         fn()
@@ -386,6 +407,5 @@ def guard(fn):
         st.error("Excepción en tiempo de ejecución")
         st.code("".join(traceback.format_exception(e)), language="python")
         st.stop()
-
 
 guard(main)
