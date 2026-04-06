@@ -32,9 +32,9 @@ st.markdown("<style>.block-container{padding-top:1.2rem}</style>", unsafe_allow_
 # ========================= AUTENTICACION =========================
 
 USUARIOS = {
-    "admin": "1234",
+    "jeison": "jeison1411",
     "facturacion1": "rips2024",
-    "facturacion2": "rips2024",
+    "admin": "rips2026",
     "auditoria": "audit2024"
 }
 
