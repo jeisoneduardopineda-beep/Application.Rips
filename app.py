@@ -77,7 +77,7 @@ ORDEN_SERVICIOS = {
         "numDocumentoIdentificacion","vrUnitMedicamento","vrServicio","conceptoRecaudo",
         "valorPagoModerador","numFEVPagoModerador","consecutivo"
     ],
-    "otrosservicios": [
+    "otrosServicios": [
         "codPrestador","numAutorizacion","idMIPRES","fechaSuministroTecnologia","tipoOS",
         "codTecnologiaSalud","nomTecnologiaSalud","cantidadOS","tipoDocumentoIdentificacion",
         "numDocumentoIdentificacion","vrUnitOS","vrServicio","conceptoRecaudo",
