@@ -223,7 +223,11 @@ def json_to_excel(files, tipo_factura):
 
 def excel_to_json(archivo_excel, tipo_factura, nit):
 
+    try:
     xlsx = pd.read_excel(archivo_excel, sheet_name=None, dtype=str)
+except Exception as e:
+    st.error(f"Error leyendo Excel: {e}")
+    return None
     dfs = {k.lower(): v.where(pd.notna(v), None) for k, v in xlsx.items()}
 
     usuarios = dfs.get("usuarios")
