@@ -344,6 +344,10 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
 # ========================= MAIN =========================
 # (SIN CAMBIOS)
 
+def main():
+    # todo tu código de streamlit aquí
+    ...
+
 def guard(fn):
     try:
         fn()
