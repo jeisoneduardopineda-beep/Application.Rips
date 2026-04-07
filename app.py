@@ -147,7 +147,7 @@ def formatear_fechas(data):
             if k == "fechaNacimiento":
                 return dt.strftime("%Y-%m-%d")
 
-            if k in ["fechaInicioAtencion","fechaDispensAdmon","fechaEgreso"]:
+            if k in ["fechaInicioAtencion","fechaDispensAdmon","fechaEgreso","fechaSuministroTecnologia"]:
                 return dt.strftime("%Y-%m-%d-%H:%M")
 
             return v
