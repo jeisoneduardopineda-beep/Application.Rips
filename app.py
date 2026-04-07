@@ -170,6 +170,20 @@ def convertir_fecha(k, v):
 
     except:
         return None
+
+def formatear_fechas(data):
+
+    if isinstance(data, dict):
+        return {
+            k: formatear_fechas(v) if isinstance(v, (dict, list))
+            else convertir_fecha(k, v)
+            for k, v in data.items()
+        }
+
+    elif isinstance(data, list):
+        return [formatear_fechas(i) for i in data]
+
+    return data
 # ========================= JSON ➜ EXCEL =========================
 
 def json_to_excel(files, tipo_factura):
