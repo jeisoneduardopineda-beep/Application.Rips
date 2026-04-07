@@ -283,17 +283,62 @@ def main():
 
     if "JSON ➜ Excel" in modo:
 
-        archivos = st.file_uploader("Sube JSON", type=["json"], accept_multiple_files=True)
+    archivos = st.file_uploader(
+        "Sube JSON",
+        type=["json"],
+        accept_multiple_files=True
+    )
 
-        if archivos and st.button("Convertir"):
+    if archivos and st.button("Convertir"):
 
-            excel_data = json_to_excel(archivos, "PGP")
+        tipo_factura = "PGP" if "PGP-CAPITA" in modo else "EVENTO"
 
-            st.download_button(
-                "Descargar Excel",
-                data=excel_data,
-                file_name="RIPS.xlsx"
-            )
+        excel_data = json_to_excel(archivos, tipo_factura)
+
+        st.download_button(
+            "Descargar Excel",
+            data=excel_data,
+            file_name=f"RIPS_{tipo_factura}.xlsx"
+        )
+
+elif "Excel ➜ JSON" in modo:
+
+    archivo_excel = st.file_uploader(
+        "Sube Excel",
+        type=["xlsx"]
+    )
+
+    if archivo_excel and st.button("Convertir"):
+
+        tipo_factura = "PGP" if "PGP-CAPITA" in modo else "EVENTO"
+
+        resultado = excel_to_json(archivo_excel, tipo_factura, nit_obligado)
+
+        if resultado:
+
+            if resultado["tipo"] == "único":
+
+                st.download_button(
+                    "Descargar JSON",
+                    data=resultado["contenido"].encode("utf-8"),
+                    file_name=resultado["nombre"]
+                )
+
+            else:
+
+                buffer = BytesIO()
+
+                with zipfile.ZipFile(buffer, "w") as zipf:
+                    for nombre, contenido in resultado["contenido"].items():
+                        zipf.writestr(nombre, contenido)
+
+                buffer.seek(0)
+
+                st.download_button(
+                    "Descargar ZIP",
+                    data=buffer,
+                    file_name="RIPS_JSON.zip"
+                )
 def guard(fn):
     try:
         fn()
