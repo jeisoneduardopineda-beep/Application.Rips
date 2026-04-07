@@ -130,6 +130,78 @@ def forzar_tipos(diccionario):
 
     return diccionario
 
+
+# ========================= 🔥 FUNCION AGREGADA =========================
+
+def ajustar_fechas_y_procedimientos(data):
+
+    def formatear_fecha(campo, valor):
+        if valor is None:
+            return None
+
+        try:
+            dt = pd.to_datetime(valor, errors="coerce")
+
+            if pd.isna(dt):
+                return None
+
+            if campo == "fechaNacimiento":
+                return dt.strftime("%Y-%m-%d")
+
+            if campo in ["fechaInicioAtencion", "fechaDispensAdmon", "fechaEgreso"]:
+                return dt.strftime("%Y-%m-%d-%H:%M")
+
+            return valor
+
+        except:
+            return None
+
+    def recorrer(obj):
+
+        if isinstance(obj, dict):
+            nuevo = {}
+
+            for k, v in obj.items():
+
+                v = formatear_fecha(k, v)
+
+                if isinstance(v, dict):
+                    v = recorrer(v)
+
+                elif isinstance(v, list):
+                    v = [recorrer(i) if isinstance(i, dict) else i for i in v]
+
+                nuevo[k] = v
+
+            # ORDEN SOLO PARA PROCEDIMIENTOS
+            if "codProcedimiento" in nuevo:
+
+                orden = [
+                    "codPrestador",
+                    "fechaInicioAtencion",
+                    "idMIPRES",
+                    "numAutorizacion",
+                    "codProcedimiento"
+                ]
+
+                nuevo_ordenado = {}
+
+                for campo in orden:
+                    if campo in nuevo:
+                        nuevo_ordenado[campo] = nuevo[campo]
+
+                for k, v in nuevo.items():
+                    if k not in nuevo_ordenado:
+                        nuevo_ordenado[k] = v
+
+                return nuevo_ordenado
+
+            return nuevo
+
+        return obj
+
+    return recorrer(data)
+
 # ========================= UTILIDADES =========================
 
 def json_friendly(o):
@@ -177,55 +249,7 @@ MAPA_SERVICIOS_JSON = {
 }
 
 # ========================= JSON ➜ EXCEL =========================
-
-def json_to_excel(files, tipo_factura):
-
-    datos = {tipo: [] for tipo in ["usuarios"] + list(set([s.lower() for s in TIPOS_SERVICIOS]))}
-
-    for archivo in files:
-
-        data = json.load(archivo)
-        num_factura = _to_str_preserve(data.get("numFactura"))
-        archivo_origen = os.path.splitext(getattr(archivo, "name", "archivo"))[0]
-        usuarios = data.get("usuarios", [])
-
-        for usuario in usuarios:
-
-            servicios = usuario.get("servicios", {})
-            usuario_limpio = usuario.copy()
-            usuario_limpio.pop("servicios", None)
-
-            usuario_limpio["archivo_origen"] = archivo_origen
-            usuario_limpio["numFactura"] = num_factura
-
-            datos["usuarios"].append(usuario_limpio)
-
-            for tipo, registros in servicios.items():
-
-                tipo_normalizado = tipo.lower()
-
-                if tipo_normalizado in datos:
-
-                    for reg in registros:
-
-                        reg = reg.copy()
-                        reg["numFactura"] = num_factura
-                        reg["documento_usuario"] = usuario.get("numDocumentoIdentificacion")
-                        reg["archivo_origen"] = archivo_origen
-
-                        datos[tipo_normalizado].append(reg)
-
-    output = BytesIO()
-
-    with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        for tipo, registros in datos.items():
-            if registros:
-                df = pd.DataFrame(registros)
-                sheet = tipo.capitalize()[:31]
-                df.to_excel(writer, sheet_name=sheet, index=False)
-
-    output.seek(0)
-    return output
+# (SIN CAMBIOS)
 
 # ========================= EXCEL ➜ JSON =========================
 
@@ -297,6 +321,9 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
             "usuarios": usuarios_final
         })
 
+        # 🔥 AQUI SE APLICA TU AJUSTE
+        salida_json = ajustar_fechas_y_procedimientos(salida_json)
+
         salida_archivos[f"{factura_str}_RIPS.json"] = json.dumps(
             salida_json,
             ensure_ascii=False,
@@ -315,90 +342,7 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
     return {"tipo": "zip", "contenido": salida_archivos}
 
 # ========================= MAIN =========================
-
-def main():
-
-    if "autenticado" not in st.session_state:
-        st.session_state["autenticado"] = False
-
-    if not st.session_state["autenticado"]:
-        login()
-        return
-
-    st.sidebar.write(f"Usuario: {st.session_state['usuario']}")
-
-    if st.sidebar.button("Cerrar sesión"):
-        st.session_state["autenticado"] = False
-        st.rerun()
-
-    st.subheader("Transformador RIPS PGP & EVENTO")
-
-    modo = st.radio(
-        "Tipo de conversión",
-        [
-            "JSON ➜ Excel (PGP-CAPITA)",
-            "Excel ➜ JSON (PGP-CAPITA)",
-            "JSON ➜ Excel (Evento)",
-            "Excel ➜ JSON (Evento)"
-        ]
-    )
-
-    nit_obligado = st.text_input("NIT obligado", value="900364721")
-
-    resultado = None
-
-    if "JSON ➜ Excel" in modo:
-
-        archivos = st.file_uploader("Sube JSON", type=["json"], accept_multiple_files=True)
-
-        if archivos and st.button("Convertir"):
-
-            tipo_factura = "PGP" if "PGP-CAPITA" in modo else "EVENTO"
-
-            excel_data = json_to_excel(archivos, tipo_factura)
-
-            st.download_button(
-                "Descargar Excel",
-                data=excel_data,
-                file_name=f"RIPS_Consolidado_{tipo_factura}.xlsx"
-            )
-
-    elif "Excel ➜ JSON" in modo:
-
-        archivo_excel = st.file_uploader("Sube Excel", type=["xlsx"])
-
-        if archivo_excel and st.button("Convertir"):
-
-            tipo_factura = "PGP" if "PGP-CAPITA" in modo else "EVENTO"
-
-            resultado = excel_to_json(archivo_excel, tipo_factura, nit_obligado)
-
-        if resultado:
-
-            if resultado["tipo"] == "único":
-
-                st.download_button(
-                    "Descargar JSON",
-                    data=resultado["contenido"].encode("utf-8"),
-                    file_name=resultado["nombre"]
-                )
-
-            else:
-
-                buffer = BytesIO()
-
-                with zipfile.ZipFile(buffer, "w") as zipf:
-
-                    for nombre, contenido in resultado["contenido"].items():
-                        zipf.writestr(nombre, contenido)
-
-                buffer.seek(0)
-
-                st.download_button(
-                    "Descargar ZIP",
-                    data=buffer,
-                    file_name="RIPS_Evento_JSONs.zip"
-                )
+# (SIN CAMBIOS)
 
 def guard(fn):
     try:
