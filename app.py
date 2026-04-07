@@ -12,16 +12,13 @@ import streamlit as st
 import numpy as np
 from datetime import date, datetime
 
-# ========================= CONFIG UI =========================
+# ========================= CONFIG =========================
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-LOGO_PATH = os.path.join(BASE_DIR, "medidatarips_logo.png")
-page_icon = LOGO_PATH if os.path.isfile(LOGO_PATH) else None
 
 st.set_page_config(
     page_title="Transformador RIPS PGP & EVENTO",
-    layout="centered",
-    page_icon=page_icon
+    layout="centered"
 )
 
 # ========================= LOGIN =========================
@@ -83,7 +80,7 @@ def limpiar_fechas(dic):
                         dic[k] = f"{f}-{h[:5]}" if h else f
     return dic
 
-# ========================= ORDEN ESTRUCTURA =========================
+# ========================= ORDEN =========================
 
 ORDEN_SERVICIOS = {
     "consultas":[
@@ -148,6 +145,40 @@ def ordenar_campos(servicios):
             out[t].append(nuevo)
     return out
 
+# ========================= JSON ➜ EXCEL =========================
+
+def json_to_excel(files):
+
+    datos = {}
+
+    for archivo in files:
+        data = json.load(archivo)
+        factura = _to_str_preserve(data.get("numFactura"))
+        usuarios = data.get("usuarios", [])
+
+        for u in usuarios:
+            servicios = u.get("servicios", {})
+            u_clean = u.copy()
+            u_clean.pop("servicios", None)
+            u_clean["numFactura"] = factura
+
+            datos.setdefault("usuarios", []).append(u_clean)
+
+            for tipo, regs in servicios.items():
+                for r in regs:
+                    r["numFactura"] = factura
+                    r["documento_usuario"] = u.get("numDocumentoIdentificacion")
+                    datos.setdefault(tipo.lower(), []).append(r)
+
+    buffer = BytesIO()
+
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        for k, v in datos.items():
+            pd.DataFrame(v).to_excel(writer, sheet_name=k[:31], index=False)
+
+    buffer.seek(0)
+    return buffer
+
 # ========================= EXCEL ➜ JSON =========================
 
 def excel_to_json(file, nit):
@@ -175,7 +206,6 @@ def excel_to_json(file, nit):
             servicios_dict = {}
 
             for s in servicios:
-
                 df = dfs[s]
                 regs = df[(df["numFactura"]==f)&(df["documento_usuario"]==doc)]
 
@@ -213,25 +243,36 @@ def main():
         login()
         return
 
-    file = st.file_uploader("Sube Excel", type=["xlsx"])
+    modo = st.radio("Modo", [
+        "JSON ➜ Excel",
+        "Excel ➜ JSON"
+    ])
+
     nit = st.text_input("NIT", "900364721")
 
-    if file and st.button("Convertir"):
-        res = excel_to_json(file, nit)
+    if "JSON" in modo:
+        files = st.file_uploader("Sube JSON", type=["json"], accept_multiple_files=True)
+        if files and st.button("Convertir"):
+            excel = json_to_excel(files)
+            st.download_button("Descargar Excel", excel, "RIPS.xlsx")
 
-        buffer = BytesIO()
-        with zipfile.ZipFile(buffer, "w") as z:
-            for n,c in res.items():
-                z.writestr(n, c)
+    else:
+        file = st.file_uploader("Sube Excel", type=["xlsx"])
+        if file and st.button("Convertir"):
+            res = excel_to_json(file, nit)
 
-        buffer.seek(0)
-        st.download_button("Descargar ZIP", buffer, "RIPS.zip")
+            buffer = BytesIO()
+            with zipfile.ZipFile(buffer, "w") as z:
+                for n,c in res.items():
+                    z.writestr(n, c)
+
+            buffer.seek(0)
+            st.download_button("Descargar ZIP", buffer, "RIPS_JSON.zip")
 
 def guard(fn):
     try:
         fn()
     except Exception as e:
         st.error(str(e))
-        st.stop()
 
 guard(main)
