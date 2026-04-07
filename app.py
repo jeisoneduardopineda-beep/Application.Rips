@@ -130,6 +130,33 @@ def forzar_tipos(diccionario):
 
     return diccionario
 
+# ========================= FORMATO FECHAS (NUEVO) =========================
+
+def formatear_fechas(diccionario):
+    if isinstance(diccionario, dict):
+        for k, v in diccionario.items():
+
+            if isinstance(v, dict):
+                diccionario[k] = formatear_fechas(v)
+
+            elif isinstance(v, list):
+                diccionario[k] = [formatear_fechas(i) if isinstance(i, dict) else i for i in v]
+
+            else:
+                if isinstance(v, (pd.Timestamp, datetime)):
+                    if k == "fechaNacimiento":
+                        diccionario[k] = v.strftime("%Y-%m-%d")
+                    else:
+                        diccionario[k] = v.strftime("%Y-%m-%d-%H:%M")
+
+                elif isinstance(v, date):
+                    if k == "fechaNacimiento":
+                        diccionario[k] = v.strftime("%Y-%m-%d")
+                    else:
+                        diccionario[k] = v.strftime("%Y-%m-%d-00:00")
+
+    return diccionario
+
 # ========================= UTILIDADES =========================
 
 def json_friendly(o):
@@ -147,7 +174,7 @@ def json_friendly(o):
     except:
         pass
     if isinstance(o, (pd.Timestamp, datetime)):
-        return o.strftime("%Y-%m-%d %H:%M")
+        return o.strftime("%Y-%m-%d-%H:%M")
     if isinstance(o, date):
         return o.strftime("%Y-%m-%d")
     return o
@@ -179,18 +206,15 @@ MAPA_SERVICIOS_JSON = {
 # ========================= JSON ➜ EXCEL =========================
 
 def json_to_excel(files, tipo_factura):
-
     datos = {tipo: [] for tipo in ["usuarios"] + list(set([s.lower() for s in TIPOS_SERVICIOS]))}
 
     for archivo in files:
-
         data = json.load(archivo)
         num_factura = _to_str_preserve(data.get("numFactura"))
         archivo_origen = os.path.splitext(getattr(archivo, "name", "archivo"))[0]
         usuarios = data.get("usuarios", [])
 
         for usuario in usuarios:
-
             servicios = usuario.get("servicios", {})
             usuario_limpio = usuario.copy()
             usuario_limpio.pop("servicios", None)
@@ -201,13 +225,10 @@ def json_to_excel(files, tipo_factura):
             datos["usuarios"].append(usuario_limpio)
 
             for tipo, registros in servicios.items():
-
                 tipo_normalizado = tipo.lower()
 
                 if tipo_normalizado in datos:
-
                     for reg in registros:
-
                         reg = reg.copy()
                         reg["numFactura"] = num_factura
                         reg["documento_usuario"] = usuario.get("numDocumentoIdentificacion")
@@ -296,6 +317,9 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
             "numNota": None,
             "usuarios": usuarios_final
         })
+
+        # 🔥 AJUSTE APLICADO SIN TOCAR LO DEMÁS
+        salida_json = formatear_fechas(salida_json)
 
         salida_archivos[f"{factura_str}_RIPS.json"] = json.dumps(
             salida_json,
