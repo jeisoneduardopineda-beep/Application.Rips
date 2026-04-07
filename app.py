@@ -145,15 +145,15 @@ def formatear_fechas(diccionario):
             else:
                 if isinstance(v, (pd.Timestamp, datetime)):
                     if k == "fechaNacimiento":
-                        diccionario[k] = v.strftime("%Y-%m-%d")
+                        diccionario[k] = v.strftime("%y-%m-%d")
                     else:
-                        diccionario[k] = v.strftime("%Y-%m-%d-%H:%M")
+                        diccionario[k] = v.strftime("%y-%m-%d-%h:%m")
 
                 elif isinstance(v, date):
                     if k == "fechaNacimiento":
-                        diccionario[k] = v.strftime("%Y-%m-%d")
+                        diccionario[k] = v.strftime("%y-%m-%d")
                     else:
-                        diccionario[k] = v.strftime("%Y-%m-%d-00:00")
+                        diccionario[k] = v.strftime("%y-%m-%d-00:00")
 
     return diccionario
 
