@@ -160,34 +160,6 @@ def convertir_fecha(k, v):
 
     except:
         return None
-        # 🔹 intentar parsear automáticamente
-        fecha = pd.to_datetime(v, errors="coerce")
-
-        if pd.isna(fecha):
-            return None
-
-        if "hora" in k.lower() or "inicio" in k.lower():
-            return fecha.strftime("%Y-%m-%d %H:%M")
-
-        return fecha.strftime("%Y-%m-%d")
-
-    except:
-        return None
-
-
-def formatear_fechas(data):
-
-    if isinstance(data, dict):
-        return {
-            k: formatear_fechas(v) if isinstance(v, (dict, list))
-            else convertir_fecha(k, v)
-            for k, v in data.items()
-        }
-
-    elif isinstance(data, list):
-        return [formatear_fechas(i) for i in data]
-
-    return data
 
 # ========================= JSON ➜ EXCEL =========================
 
