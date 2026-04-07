@@ -313,10 +313,14 @@ def main():
 
         archivos = st.file_uploader("Sube JSON", type=["json"], accept_multiple_files=True)
 
-        if archivos:
-            tipo = "PGP" if "PGP-CAPITA" in modo else "EVENTO"
-            excel = json_to_excel(archivos, tipo)
-            st.download_button("Descargar Excel", excel, "rips.xlsx")
+       if archivos:
+
+    if st.button("Convertir JSON ➜ Excel"):
+
+        tipo = "PGP" if "PGP-CAPITA" in modo else "EVENTO"
+        excel = json_to_excel(archivos, tipo)
+
+        st.download_button("Descargar Excel", excel, "rips.xlsx")
 
     elif "Excel ➜ JSON" in modo:
 
