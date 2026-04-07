@@ -4,14 +4,13 @@ import os
 import json
 import zipfile
 from io import BytesIO
-import time
 import traceback
 import pandas as pd
 import streamlit as st
 
-# ========================= CONFIG =========================
-
 st.set_page_config(page_title="Transformador RIPS PGP & EVENTO", layout="centered")
+
+# ========================= LOGIN =========================
 
 USUARIOS = {
     "jeison": "jeison1411",
@@ -20,11 +19,8 @@ USUARIOS = {
     "auditoria": "audit2024"
 }
 
-# ========================= LOGIN =========================
-
 def login():
     st.title("🔐 Inicio de sesión")
-
     usuario = st.text_input("Usuario")
     password = st.text_input("Contraseña", type="password")
 
@@ -38,7 +34,20 @@ def login():
 
 # ========================= ORDEN =========================
 
-ORDEN_SERVICIOS = {...}  # (déjalo igual que ya lo tienes completo)
+ORDEN_SERVICIOS = {}  # 👈 deja tu diccionario aquí como ya lo tienes
+
+def limpiar_registro(reg):
+    if isinstance(reg, dict):
+        return reg
+
+    # 🔥 aquí estaba el problema real
+    if isinstance(reg, set):
+        reg = list(reg)
+
+    try:
+        return dict(reg)
+    except:
+        return {}
 
 def ordenar_campos_servicios(tipo, registros):
 
@@ -50,12 +59,7 @@ def ordenar_campos_servicios(tipo, registros):
 
     for reg in registros:
 
-        # 🔥 FORZAR A DICT SI VIENE RARO
-        if not isinstance(reg, dict):
-            try:
-                reg = dict(reg)
-            except:
-                continue  # si no se puede convertir, lo ignoramos
+        reg = limpiar_registro(reg)
 
         nuevo = {}
 
@@ -69,13 +73,14 @@ def ordenar_campos_servicios(tipo, registros):
         salida.append(nuevo)
 
     return salida
+
 # ========================= AUX =========================
 
 def _to_str_preserve(v):
     if v is None:
         return None
     s = str(v)
-    if s.lower() in {"nan","none",""}:
+    if s.lower() in {"nan", "none", ""}:
         return None
     return s
 
@@ -101,8 +106,9 @@ def json_to_excel(files, tipo_factura):
                 tipo = tipo.lower()
                 if tipo in datos:
                     for reg in registros:
-                        reg["numFactura"] = num_factura
-                        datos[tipo].append(reg)
+                        if isinstance(reg, dict):
+                            reg["numFactura"] = num_factura
+                            datos[tipo].append(reg)
 
     output = BytesIO()
 
@@ -150,8 +156,17 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
                 registros = df[df["numFactura"] == factura_str]
 
                 if not registros.empty:
-                    lista = [r.to_dict() for _, r in registros.iterrows()]
+
+                    lista = []
+                    for _, r in registros.iterrows():
+                        d = r.to_dict()
+
+                        # 🔥 limpieza fuerte
+                        if isinstance(d, dict):
+                            lista.append(d)
+
                     lista = ordenar_campos_servicios(tipo, lista)
+
                     servicios_dict[tipo] = lista
 
             usuario_dict["servicios"] = servicios_dict
@@ -230,7 +245,6 @@ def main():
                         zipf.writestr(nombre, contenido)
 
                 buffer.seek(0)
-
                 st.download_button("Descargar ZIP", buffer, "rips.zip")
 
 # ========================= RUN =========================
