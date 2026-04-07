@@ -27,6 +27,7 @@ st.set_page_config(
 )
 
 st.caption(f"BUILD_MARK {int(time.time())}")
+st.markdown("<style>.block-container{padding-top:1.2rem}</style>", unsafe_allow_html=True)
 
 # ========================= AUTENTICACION =========================
 
@@ -47,14 +48,37 @@ def login():
         if usuario in USUARIOS and USUARIOS[usuario] == password:
             st.session_state["autenticado"] = True
             st.session_state["usuario"] = usuario
+            st.success("Acceso concedido")
             st.rerun()
         else:
             st.error("Credenciales incorrectas")
 
-# ========================= TIPOS =========================
+# ========================= CONFIG TIPOS =========================
 
-CAMPOS_TEXTO = {...}  # (igual que tu código)
-CAMPOS_NUMERICOS = {...}
+CAMPOS_TEXTO = {
+    "numDocumentoIdObligado","numFactura","tipoNota","numNota",
+    "tipoDocumentoIdentificacion","numDocumentoIdentificacion","tipoUsuario",
+    "codSexo","codPaisResidencia","codMunicipioResidencia",
+    "codZonaTerritorialResidencia","incapacidad",
+    "numAutorizacion","codConsulta","modalidadGrupoServicioTecSal",
+    "grupoServicios","finalidadTecnologiaSalud",
+    "causaMotivoAtencion","codDiagnosticoPrincipal",
+    "codDiagnosticoRelacionado1","codDiagnosticoRelacionado2",
+    "codDiagnosticoRelacionado3","tipoDiagnosticoPrincipal",
+    "conceptoRecaudo","numFEVPagoModerador","idMIPRES",
+    "codDiagnosticoRelacionado","tipoMedicamento",
+    "codTecnologiaSalud","nomTecnologiaSalud","formaFarmaceutica",
+    "codProcedimiento","viaIngresoServicioSalud",
+    "codComplicacion","codDiagnosticoPrincipalE",
+    "condicionDestinoUsuarioEgreso"
+}
+
+CAMPOS_NUMERICOS = {
+    "vrServicio","valorPagoModerador","consecutivo","codServicio",
+    "concentracionMedicamento","unidadMinDispensa","cantidadMedicamento",
+    "diasTratamiento","vrUnitMedicamento","unidadMedida",
+    "cantidadOS","vrUnitOS"
+}
 
 # ========================= TIPADO =========================
 
@@ -73,24 +97,30 @@ def forzar_tipos(diccionario):
 
             else:
                 if k in CAMPOS_TEXTO:
-                    diccionario[k] = None if v in [None, "", "nan"] else str(v)
+                    if v is None or v == "" or str(v).lower() in ["nan","none"]:
+                        diccionario[k] = None
+                    else:
+                        diccionario[k] = str(v)
 
                 elif k in CAMPOS_NUMERICOS:
                     try:
-                        diccionario[k] = None if v in [None, "", "nan"] else float(v)
+                        if v is None or v == "" or str(v).lower() in ["nan","none"]:
+                            diccionario[k] = None
+                        else:
+                            diccionario[k] = float(v) if "." in str(v) else int(v)
                     except:
                         diccionario[k] = None
-
                 else:
-                    diccionario[k] = None if v in [None, "nan"] else v
+                    diccionario[k] = None if v is None else v
 
     return diccionario
 
-# ========================= 🔥 AJUSTES SOLICITADOS =========================
+# ========================= 🔥 AJUSTE FECHAS =========================
 
-def ajustar_fechas_y_procedimientos(data):
+def ajustar_fechas(data):
 
-    def formatear_fecha(campo, valor):
+    def convertir(campo, valor):
+
         if valor is None:
             return None
 
@@ -107,6 +137,7 @@ def ajustar_fechas_y_procedimientos(data):
                 return dt.strftime("%Y-%m-%d-%H:%M")
 
             return valor
+
         except:
             return None
 
@@ -117,7 +148,7 @@ def ajustar_fechas_y_procedimientos(data):
 
             for k, v in obj.items():
 
-                v = formatear_fecha(k, v)
+                v = convertir(k, v)
 
                 if isinstance(v, dict):
                     v = recorrer(v)
@@ -127,43 +158,62 @@ def ajustar_fechas_y_procedimientos(data):
 
                 nuevo[k] = v
 
-            # 🔥 ORDEN DE PROCEDIMIENTOS
-            if "codProcedimiento" in nuevo:
-
-                orden = [
-                    "codPrestador",
-                    "fechaInicioAtencion",
-                    "idMIPRES",
-                    "numAutorizacion",
-                    "codProcedimiento"
-                ]
-
-                nuevo_ordenado = {}
-
-                for campo in orden:
-                    if campo in nuevo:
-                        nuevo_ordenado[campo] = nuevo[campo]
-
-                for k, v in nuevo.items():
-                    if k not in nuevo_ordenado:
-                        nuevo_ordenado[k] = v
-
-                return nuevo_ordenado
-
             return nuevo
 
         return obj
 
     return recorrer(data)
 
+# ========================= UTILIDADES =========================
+
+def json_friendly(o):
+    if isinstance(o, (np.integer,)): return int(o)
+    if isinstance(o, (np.floating,)): return float(o)
+    if isinstance(o, (np.bool_,)): return bool(o)
+    if o is pd.NaT: return None
+    if isinstance(o, (pd.Timestamp, datetime)): return o.strftime("%Y-%m-%d %H:%M")
+    if isinstance(o, date): return o.strftime("%Y-%m-%d")
+    return o
+
+def _to_str_preserve(v):
+    if v is None: return None
+    s = str(v)
+    return None if s.lower() in {"nan","none",""} else s
+
+# ========================= JSON ➜ EXCEL =========================
+
+def json_to_excel(files, tipo_factura):
+
+    datos = {"usuarios":[]}
+
+    for archivo in files:
+
+        data = json.load(archivo)
+        num_factura = _to_str_preserve(data.get("numFactura"))
+
+        for usuario in data.get("usuarios",[]):
+
+            usuario_limpio = usuario.copy()
+            usuario_limpio.pop("servicios",None)
+            usuario_limpio["numFactura"] = num_factura
+
+            datos["usuarios"].append(usuario_limpio)
+
+    output = BytesIO()
+
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        df = pd.DataFrame(datos["usuarios"])
+        df.to_excel(writer, sheet_name="Usuarios", index=False)
+
+    output.seek(0)
+    return output
+
 # ========================= EXCEL ➜ JSON =========================
 
 def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
 
     xlsx = pd.read_excel(archivo_excel, sheet_name=None, dtype=str)
-    dataframes = {str(k).lower(): v for k, v in xlsx.items()}
-
-    usuarios_df = dataframes["usuarios"]
+    usuarios_df = xlsx["usuarios"]
 
     salida_archivos = {}
 
@@ -171,67 +221,58 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
 
         usuarios_final = []
 
-        usuarios_factura = usuarios_df[usuarios_df["numFactura"] == factura]
-
-        for _, usuario in usuarios_factura.iterrows():
+        for _, usuario in usuarios_df.iterrows():
 
             usuario_dict = usuario.to_dict()
-
-            usuario_dict.pop("numFactura", None)
-
-            usuario_dict["servicios"] = {}
+            usuario_dict.pop("numFactura",None)
 
             usuarios_final.append(usuario_dict)
 
-        salida_json = {
+        salida_json = forzar_tipos({
             "numDocumentoIdObligado": nit_obligado,
             "numFactura": factura,
             "tipoNota": None,
             "numNota": None,
             "usuarios": usuarios_final
-        }
+        })
 
-        salida_json = forzar_tipos(salida_json)
-
-        # 🔥 AQUÍ TU AJUSTE
-        salida_json = ajustar_fechas_y_procedimientos(salida_json)
+        # 🔥 AQUÍ SE APLICA EL AJUSTE
+        salida_json = ajustar_fechas(salida_json)
 
         salida_archivos[f"{factura}.json"] = json.dumps(
             salida_json,
             ensure_ascii=False,
-            indent=2
+            indent=2,
+            default=json_friendly
         )
 
-    return salida_archivos
+    return {"tipo":"zip","contenido":salida_archivos}
 
-# ========================= MAIN (ARREGLADO) =========================
+# ========================= MAIN =========================
 
 def main():
 
-    if not st.session_state.get("autenticado"):
+    if "autenticado" not in st.session_state:
+        st.session_state["autenticado"] = False
+
+    if not st.session_state["autenticado"]:
         login()
         return
 
-    st.title("Transformador RIPS")
+    st.subheader("Transformador RIPS")
 
-    modo = st.radio("Tipo de conversión", [
-        "Excel ➜ JSON (PGP-CAPITA)"
-    ])
+    modo = st.radio("Tipo", ["Excel ➜ JSON"])
 
-    nit = st.text_input("NIT obligado")
+    nit = st.text_input("NIT")
 
-    archivo = st.file_uploader("Sube Excel", type=["xlsx"])
+    archivo = st.file_uploader("Excel", type=["xlsx"])
 
     if archivo and st.button("Convertir"):
 
-        resultado = excel_to_json(archivo, "PGP", nit)
+        resultado = excel_to_json(archivo,"PGP",nit)
 
-        for nombre, contenido in resultado.items():
-            st.download_button(
-                label=f"Descargar {nombre}",
-                data=contenido,
-                file_name=nombre
-            )
+        for nombre, contenido in resultado["contenido"].items():
+            st.download_button(nombre,contenido,nombre)
 
 # ========================= GUARD =========================
 
