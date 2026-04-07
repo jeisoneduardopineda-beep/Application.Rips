@@ -359,6 +359,7 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
                     tipo_json = MAPA_SERVICIOS_JSON.get(tipo.lower(), tipo)
                     servicios_dict[tipo_json] = registros_limpios
 
+            servicios_dict = ordenar_campos_servicios(servicios_dict)
             usuario_limpio["servicios"] = servicios_dict
             usuarios_final.append(usuario_limpio)
 
