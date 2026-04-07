@@ -224,11 +224,10 @@ def json_to_excel(files, tipo_factura):
 def excel_to_json(archivo_excel, tipo_factura, nit):
 
     try:
-        xlsx = pd.read_excel(archivo_excel, sheet_name=None, dtype=str)
-    except Exception as e:
-        st.error(f"Error leyendo Excel: {e}")
-        return None
-
+    xlsx = pd.read_excel(archivo_excel, sheet_name=None, dtype=str)
+except Exception as e:
+    st.error(f"Error leyendo Excel: {e}")
+    return None
     dfs = {k.lower(): v.where(pd.notna(v), None) for k, v in xlsx.items()}
 
     usuarios = dfs.get("usuarios")
@@ -243,6 +242,7 @@ def excel_to_json(archivo_excel, tipo_factura, nit):
     for factura in facturas:
 
         usuarios_final = []
+
         usuarios_f = usuarios[usuarios["numFactura"] == factura]
 
         for _, u in usuarios_f.iterrows():
@@ -278,23 +278,12 @@ def excel_to_json(archivo_excel, tipo_factura, nit):
         salida_json = forzar_tipos(salida_json)
         salida_json = formatear_fechas(salida_json)
 
-        salida[f"{factura}.json"] = json.dumps(
-            salida_json,
-            indent=2,
-            ensure_ascii=False
-        )
+        salida[f"{factura}.json"] = json.dumps(salida_json, indent=2, ensure_ascii=False)
 
     if tipo_factura == "PGP":
-        return {
-            "tipo": "unico",
-            "contenido": list(salida.values())[0],
-            "nombre": "rips.json"
-        }
+        return {"tipo": "unico", "contenido": list(salida.values())[0], "nombre": "rips.json"}
 
-    return {
-        "tipo": "zip",
-        "contenido": salida
-    }
+    return {"tipo": "zip", "contenido": salida}
 
 # ========================= MAIN =========================
 
