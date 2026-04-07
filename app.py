@@ -285,5 +285,70 @@ except Exception as e:
 
     return {"tipo": "zip", "contenido": salida}
 
+# ========================= MAIN =========================
+
 def main():
-    st.title("APP FUNCIONANDO")
+
+    if "autenticado" not in st.session_state:
+        st.session_state["autenticado"] = False
+
+    if not st.session_state["autenticado"]:
+        login()
+        return
+
+    st.sidebar.write(f"Usuario: {st.session_state['usuario']}")
+
+    if st.sidebar.button("Cerrar sesión"):
+        st.session_state["autenticado"] = False
+        st.rerun()
+
+    modo = st.radio("Tipo de conversión", [
+        "JSON ➜ Excel (PGP-CAPITA)",
+        "Excel ➜ JSON (PGP-CAPITA)",
+        "JSON ➜ Excel (Evento)",
+        "Excel ➜ JSON (Evento)"
+    ])
+
+    nit = st.text_input("NIT obligado", value="900364721")
+
+    if "JSON ➜ Excel" in modo:
+
+        archivos = st.file_uploader("Sube JSON", type=["json"], accept_multiple_files=True)
+
+        if archivos:
+            tipo = "PGP" if "PGP-CAPITA" in modo else "EVENTO"
+            excel = json_to_excel(archivos, tipo)
+            st.download_button("Descargar Excel", excel, "rips.xlsx")
+
+    elif "Excel ➜ JSON" in modo:
+
+        archivo = st.file_uploader("Sube Excel", type=["xlsx"])
+
+        if archivo:
+            tipo = "PGP" if "PGP-CAPITA" in modo else "EVENTO"
+            resultado = excel_to_json(archivo, tipo, nit)
+
+            if resultado:
+
+                if resultado["tipo"] == "unico":
+                    st.download_button("Descargar JSON", resultado["contenido"], resultado["nombre"])
+
+                else:
+                    buffer = BytesIO()
+                    with zipfile.ZipFile(buffer, "w") as z:
+                        for n, c in resultado["contenido"].items():
+                            z.writestr(n, c)
+
+                    buffer.seek(0)
+                    st.download_button("Descargar ZIP", buffer, "rips.zip")
+
+# ========================= RUN =========================
+
+def guard(fn):
+    try:
+        fn()
+    except Exception as e:
+        st.error("Error en ejecución")
+        st.code(traceback.format_exc())
+
+guard(main)
