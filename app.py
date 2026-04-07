@@ -53,8 +53,6 @@ def login():
         else:
             st.error("Credenciales incorrectas")
 
-
-
 # ========================= CONFIG TIPOS =========================
 
 CAMPOS_TEXTO = {
@@ -149,10 +147,52 @@ def json_friendly(o):
     except:
         pass
     if isinstance(o, (pd.Timestamp, datetime)):
-        return o.strftime("%Y-%m-%d-%H:%M")  # 🔥 SIN SEGUNDOS
+        return o.strftime("%Y-%m-%d-%H:%M")
     if isinstance(o, date):
         return o.strftime("%Y-%m-%d")
     return o
+
+# 🔥 FIX 1: función faltante
+def _to_str_preserve(v):
+    if v is None:
+        return None
+    s = str(v)
+    if s.lower() in {"nan", "none", ""}:
+        return None
+    return s
+
+# ========================= LIMPIAR FECHAS =========================
+
+def limpiar_fechas(diccionario):
+    if isinstance(diccionario, dict):
+        for k, v in diccionario.items():
+
+            if isinstance(v, dict):
+                diccionario[k] = limpiar_fechas(v)
+
+            elif isinstance(v, list):
+                diccionario[k] = [limpiar_fechas(i) if isinstance(i, dict) else i for i in v]
+
+            else:
+                if isinstance(v, str) and "fecha" in k.lower():
+
+                    if len(v) >= 19:
+                        v = v[:16]
+
+                    if " " in v:
+                        fecha, hora = v.split(" ")
+                    else:
+                        fecha, hora = v, None
+
+                    if k == "fechaNacimiento":
+                        diccionario[k] = fecha
+                    else:
+                        if hora:
+                            diccionario[k] = f"{fecha}-{hora[:5]}"
+                        else:
+                            diccionario[k] = fecha
+
+    return diccionario
 
 TIPOS_SERVICIOS = [
     "consultas","procedimientos","hospitalizacion","hospitalizaciones",
@@ -170,112 +210,6 @@ MAPA_SERVICIOS_JSON = {
     "otrosservicios": "otrosServicios"
 }
 
-# ========================= ORDEN CAMPOS (AGREGADO) =========================
-
-ORDEN_SERVICIOS = {
-    "consultas": [
-        "codPrestador","fechaInicioAtencion","numAutorizacion","codConsulta",
-        "modalidadGrupoServicioTecSal","grupoServicios","codServicio",
-        "finalidadTecnologiaSalud","causaMotivoAtencion","codDiagnosticoPrincipal",
-        "codDiagnosticoRelacionado1","codDiagnosticoRelacionado2","codDiagnosticoRelacionado3",
-        "tipoDiagnosticoPrincipal","tipoDocumentoIdentificacion","numDocumentoIdentificacion",
-        "vrServicio","conceptoRecaudo","valorPagoModerador","numFEVPagoModerador","consecutivo"
-    ],
-    "procedimientos": [
-        "codPrestador","fechaInicioAtencion","idMIPRES","numAutorizacion","codProcedimiento",
-        "viaIngresoServicioSalud","modalidadGrupoServicioTecSal","grupoServicios","codServicio",
-        "finalidadTecnologiaSalud","tipoDocumentoIdentificacion","numDocumentoIdentificacion",
-        "codDiagnosticoPrincipal","codDiagnosticoRelacionado","codComplicacion","vrServicio",
-        "conceptoRecaudo","valorPagoModerador","numFEVPagoModerador","consecutivo"
-    ],
-    "urgencias": [
-        "codPrestador","fechaInicioAtencion","causaMotivoAtencion","codDiagnosticoPrincipal",
-        "codDiagnosticoPrincipalE","codDiagnosticoRelacionadoE1","codDiagnosticoRelacionadoE2",
-        "codDiagnosticoRelacionadoE3","condicionDestinoUsuarioEgreso","codDiagnosticoCausaMuerte",
-        "fechaEgreso","consecutivo"
-    ],
-    "hospitalizacion": [
-        "codPrestador","viaIngresoServicioSalud","fechaInicioAtencion","numAutorizacion",
-        "causaMotivoAtencion","codDiagnosticoPrincipal","codDiagnosticoPrincipalE",
-        "codDiagnosticoRelacionadoE1","codDiagnosticoRelacionadoE2","codDiagnosticoRelacionadoE3",
-        "codComplicacion","condicionDestinoUsuarioEgreso","codDiagnosticoCausaMuerte","fechaEgreso",
-        "consecutivo"
-    ],
-    "reciennacidos": [
-        "codPrestador","tipoDocumentoIdentificacion","numDocumentoIdentificacion","fechaNacimiento",
-        "edadGestacional","numConsultasCPrenatal","codSexoBiologico","peso","codDiagnosticoPrincipal",
-        "condicionDestinoUsuarioEgreso","codDiagnosticoCausaMuerte","fechaEgreso","consecutivo"
-    ],
-    "medicamentos": [
-        "codPrestador","numAutorizacion","idMIPRES","fechaDispensAdmon","codDiagnosticoPrincipal",
-        "codDiagnosticoRelacionado","tipoMedicamento","codTecnologiaSalud","nomTecnologiaSalud",
-        "concentracionMedicamento","unidadMedida","formaFarmaceutica","unidadMinDispensa",
-        "cantidadMedicamento","diasTratamiento","tipoDocumentoIdentificacion",
-        "numDocumentoIdentificacion","vrUnitMedicamento","vrServicio","conceptoRecaudo",
-        "valorPagoModerador","numFEVPagoModerador","consecutivo"
-    ],
-    "otrosservicios": [
-        "codPrestador","numAutorizacion","idMIPRES","fechaSuministroTecnologia","tipoOS",
-        "codTecnologiaSalud","nomTecnologiaSalud","cantidadOS","tipoDocumentoIdentificacion",
-        "numDocumentoIdentificacion","vrUnitOS","vrServicio","conceptoRecaudo",
-        "valorPagoModerador","numFEVPagoModerador","consecutivo"
-    ]
-}
-
-def ordenar_campos_servicios(servicios_dict):
-    nuevo = {}
-
-    for tipo, registros in servicios_dict.items():
-        orden = ORDEN_SERVICIOS.get(tipo.lower(), [])
-        lista = []
-
-        for r in registros:
-            ordenado = {k: r.get(k) for k in orden if k in r}
-
-            for k in r:
-                if k not in ordenado:
-                    ordenado[k] = r[k]
-
-            lista.append(ordenado)
-
-        nuevo[tipo] = lista
-
-    return nuevo
-
-
-def limpiar_fechas(diccionario):
-    if isinstance(diccionario, dict):
-        for k, v in diccionario.items():
-
-            if isinstance(v, dict):
-                diccionario[k] = limpiar_fechas(v)
-
-            elif isinstance(v, list):
-                diccionario[k] = [limpiar_fechas(i) if isinstance(i, dict) else i for i in v]
-
-            else:
-                if isinstance(v, str) and "fecha" in k.lower():
-
-                    # 🔥 eliminar segundos
-                    if len(v) >= 19:
-                        v = v[:16]
-
-                    # separar
-                    if " " in v:
-                        fecha, hora = v.split(" ")
-                    else:
-                        fecha, hora = v, None
-
-                    # 🔥 regla especial
-                    if k == "fechaNacimiento":
-                        diccionario[k] = fecha
-                    else:
-                        if hora:
-                            diccionario[k] = f"{fecha}-{hora[:5]}"
-                        else:
-                            diccionario[k] = fecha
-
-    return diccionario
 # ========================= JSON ➜ EXCEL =========================
 
 def json_to_excel(files, tipo_factura):
@@ -386,7 +320,6 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
                     tipo_json = MAPA_SERVICIOS_JSON.get(tipo.lower(), tipo)
                     servicios_dict[tipo_json] = registros_limpios
 
-            servicios_dict = ordenar_campos_servicios(servicios_dict)
             usuario_limpio["servicios"] = servicios_dict
             usuarios_final.append(usuario_limpio)
 
@@ -397,6 +330,9 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
             "numNota": None,
             "usuarios": usuarios_final
         })
+
+        # 🔥 FIX 2: aplicar limpieza de fechas
+        salida_json = limpiar_fechas(salida_json)
 
         salida_archivos[f"{factura_str}_RIPS.json"] = json.dumps(
             salida_json,
