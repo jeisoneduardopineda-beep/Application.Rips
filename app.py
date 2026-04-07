@@ -139,23 +139,52 @@ def forzar_tipos(data):
 # ========================= FECHAS =========================
 
 def convertir_fecha(k, v):
-    if not v or "fecha" not in k.lower():
+
+    if v is None:
+        return None
+
+    if "fecha" not in k.lower():
         return v
 
     try:
-        v = str(v)
-        if " " in v:
-            f, h = v.split(" ")
-            return f"{f}-{h[:5]}"
-        return v
+        # 🔹 si viene como datetime real
+        if isinstance(v, (datetime, pd.Timestamp)):
+            if "hora" in k.lower() or "inicio" in k.lower():
+                return v.strftime("%Y-%m-%d %H:%M")
+            return v.strftime("%Y-%m-%d")
+
+        v = str(v).strip()
+
+        if v.lower() in ["nan", "none", ""]:
+            return None
+
+        # 🔹 intentar parsear automáticamente
+        fecha = pd.to_datetime(v, errors="coerce")
+
+        if pd.isna(fecha):
+            return None
+
+        if "hora" in k.lower() or "inicio" in k.lower():
+            return fecha.strftime("%Y-%m-%d %H:%M")
+
+        return fecha.strftime("%Y-%m-%d")
+
     except:
-        return v
+        return None
+
 
 def formatear_fechas(data):
+
     if isinstance(data, dict):
-        return {k: formatear_fechas(v) if isinstance(v, (dict, list)) else convertir_fecha(k, v) for k, v in data.items()}
+        return {
+            k: formatear_fechas(v) if isinstance(v, (dict, list))
+            else convertir_fecha(k, v)
+            for k, v in data.items()
+        }
+
     elif isinstance(data, list):
         return [formatear_fechas(i) for i in data]
+
     return data
 
 # ========================= JSON ➜ EXCEL =========================
