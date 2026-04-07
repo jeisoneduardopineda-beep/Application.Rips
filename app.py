@@ -41,18 +41,34 @@ def login():
 ORDEN_SERVICIOS = {...}  # (déjalo igual que ya lo tienes completo)
 
 def ordenar_campos_servicios(tipo, registros):
+
     orden = ORDEN_SERVICIOS.get(tipo.lower())
     if not orden:
         return registros
+
     salida = []
+
     for reg in registros:
-        nuevo = {campo: reg.get(campo) for campo in orden}
+
+        # 🔥 FORZAR A DICT SI VIENE RARO
+        if not isinstance(reg, dict):
+            try:
+                reg = dict(reg)
+            except:
+                continue  # si no se puede convertir, lo ignoramos
+
+        nuevo = {}
+
+        for campo in orden:
+            nuevo[campo] = reg.get(campo)
+
         for k, v in reg.items():
             if k not in nuevo:
                 nuevo[k] = v
-        salida.append(nuevo)
-    return salida
 
+        salida.append(nuevo)
+
+    return salida
 # ========================= AUX =========================
 
 def _to_str_preserve(v):
