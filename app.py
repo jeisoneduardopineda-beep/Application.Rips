@@ -4,24 +4,32 @@ import os
 import json
 import zipfile
 from io import BytesIO
+import re
+import base64
+from collections.abc import Mapping
 import time
 import traceback
+import inspect as _inspect
 
 import pandas as pd
 import streamlit as st
 import numpy as np
 from datetime import date, datetime
 
-# ========================= CONFIG =========================
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+LOGO_PATH = os.path.join(BASE_DIR, "medidatarips_logo.png")
+page_icon = LOGO_PATH if os.path.isfile(LOGO_PATH) else None
 
 st.set_page_config(
     page_title="Transformador RIPS PGP & EVENTO",
-    layout="centered"
+    layout="centered",
+    page_icon=page_icon
 )
 
-# ========================= LOGIN =========================
+st.caption(f"BUILD_MARK {int(time.time())}")
+st.markdown("<style>.block-container{padding-top:1.2rem}</style>", unsafe_allow_html=True)
+
+# ========================= AUTENTICACION =========================
 
 USUARIOS = {
     "jeison": "jeison1411",
@@ -32,247 +40,426 @@ USUARIOS = {
 
 def login():
     st.title("🔐 Inicio de sesión")
-    u = st.text_input("Usuario")
-    p = st.text_input("Contraseña", type="password")
+
+    usuario = st.text_input("Usuario")
+    password = st.text_input("Contraseña", type="password")
 
     if st.button("Ingresar"):
-        if u in USUARIOS and USUARIOS[u] == p:
-            st.session_state["auth"] = True
+        if usuario in USUARIOS and USUARIOS[usuario] == password:
+            st.session_state["autenticado"] = True
+            st.session_state["usuario"] = usuario
+            st.success("Acceso concedido")
             st.rerun()
         else:
             st.error("Credenciales incorrectas")
 
-# ========================= UTILS =========================
+# ========================= CONFIG TIPOS =========================
 
-def _to_str_preserve(v):
-    if v is None: return None
-    s = str(v)
-    return None if s.lower() in {"nan","none",""} else s
+CAMPOS_TEXTO = {
+    "numDocumentoIdObligado","numFactura","tipoNota","numNota",
+    "tipoDocumentoIdentificacion","numDocumentoIdentificacion","tipoUsuario",
+    "codSexo","codPaisResidencia","codMunicipioResidencia",
+    "codZonaTerritorialResidencia","incapacidad",
+    "numAutorizacion","codConsulta","modalidadGrupoServicioTecSal",
+    "grupoServicios","finalidadTecnologiaSalud",
+    "causaMotivoAtencion","codDiagnosticoPrincipal",
+    "codDiagnosticoRelacionado1","codDiagnosticoRelacionado2",
+    "codDiagnosticoRelacionado3","tipoDiagnosticoPrincipal",
+    "conceptoRecaudo","numFEVPagoModerador","idMIPRES",
+    "codDiagnosticoRelacionado","tipoMedicamento",
+    "codTecnologiaSalud","nomTecnologiaSalud","formaFarmaceutica",
+    "codProcedimiento","viaIngresoServicioSalud",
+    "codComplicacion","codDiagnosticoPrincipalE",
+    "condicionDestinoUsuarioEgreso"
+}
+
+CAMPOS_NUMERICOS = {
+    "vrServicio",
+    "valorPagoModerador",
+    "consecutivo",
+    "codServicio",
+    "concentracionMedicamento",
+    "unidadMinDispensa",
+    "cantidadMedicamento",
+    "diasTratamiento",
+    "vrUnitMedicamento",
+    "unidadMedida",
+    "cantidadOS",
+    "vrUnitOS"
+}
+
+# ========================= FUNCION TIPADO =========================
+
+def forzar_tipos(diccionario):
+    if isinstance(diccionario, dict):
+        for k, v in diccionario.items():
+
+            if isinstance(v, dict):
+                diccionario[k] = forzar_tipos(v)
+
+            elif isinstance(v, list):
+                diccionario[k] = [
+                    forzar_tipos(i) if isinstance(i, dict) else i
+                    for i in v
+                ]
+
+            else:
+                if k in CAMPOS_TEXTO:
+                    if v is None or v == "" or str(v).lower() in ["nan", "none"]:
+                        diccionario[k] = None
+                    else:
+                        diccionario[k] = str(v)
+
+                elif k in CAMPOS_NUMERICOS:
+                    try:
+                        if v is None or v == "" or str(v).lower() in ["nan", "none"]:
+                            diccionario[k] = None
+                        else:
+                            if "." in str(v):
+                                diccionario[k] = float(v)
+                            else:
+                                diccionario[k] = int(v)
+                    except:
+                        diccionario[k] = None
+
+                else:
+                    if v is None or str(v).lower() in ["nan", "none"]:
+                        diccionario[k] = None
+                    else:
+                        diccionario[k] = v
+
+    return diccionario
+
+# ========================= FORMATO FECHAS (SOLUCIÓN REAL) =========================
+
+def formatear_fechas(diccionario):
+    if isinstance(diccionario, dict):
+        for k, v in diccionario.items():
+
+            if isinstance(v, dict):
+                diccionario[k] = formatear_fechas(v)
+
+            elif isinstance(v, list):
+                diccionario[k] = [
+                    formatear_fechas(i) if isinstance(i, dict) else i
+                    for i in v
+                ]
+
+            else:
+                if isinstance(v, (pd.Timestamp, datetime)):
+                    if k == "fechaNacimiento":
+                        diccionario[k] = v.strftime("%Y-%m-%d")
+                    else:
+                        diccionario[k] = v.strftime("%Y-%m-%d-%H:%M")
+
+                elif isinstance(v, date):
+                    if k == "fechaNacimiento":
+                        diccionario[k] = v.strftime("%Y-%m-%d")
+                    else:
+                        diccionario[k] = v.strftime("%Y-%m-%d-00:00")
+
+                elif isinstance(v, str):
+                    if "fecha" in k.lower():
+
+                        # quitar segundos si existen
+                        if len(v) >= 19:
+                            v = v[:16]
+
+                        if " " in v:
+                            fecha, hora = v.split(" ")
+                        elif "T" in v:
+                            fecha, hora = v.split("T")
+                        else:
+                            fecha, hora = v, None
+
+                        if k == "fechaNacimiento":
+                            diccionario[k] = fecha
+                        else:
+                            if hora:
+                                diccionario[k] = f"{fecha}-{hora[:5]}"
+                            else:
+                                diccionario[k] = fecha
+
+    return diccionario
+
+# ========================= UTILIDADES =========================
 
 def json_friendly(o):
+    if isinstance(o, (np.integer,)):
+        return int(o)
+    if isinstance(o, (np.floating,)):
+        return float(o)
+    if isinstance(o, (np.bool_,)):
+        return bool(o)
+    if o is pd.NaT:
+        return None
+    try:
+        if pd.isna(o):
+            return None
+    except:
+        pass
     if isinstance(o, (pd.Timestamp, datetime)):
         return o.strftime("%Y-%m-%d-%H:%M")
     if isinstance(o, date):
         return o.strftime("%Y-%m-%d")
     return o
 
-# ========================= LIMPIAR FECHAS =========================
+def _to_str_preserve(v):
+    if v is None:
+        return None
+    s = str(v)
+    if s.lower() in {"nan", "none", ""}:
+        return None
+    return s
 
-def limpiar_fechas(dic):
-    if isinstance(dic, dict):
-        for k, v in dic.items():
-            if isinstance(v, dict):
-                dic[k] = limpiar_fechas(v)
-            elif isinstance(v, list):
-                dic[k] = [limpiar_fechas(i) if isinstance(i, dict) else i for i in v]
-            else:
-                if isinstance(v, str) and "fecha" in k.lower():
-                    if len(v) >= 19:
-                        v = v[:16]
-                    if " " in v:
-                        f, h = v.split(" ")
-                    else:
-                        f, h = v, None
+TIPOS_SERVICIOS = [
+    "consultas","procedimientos","hospitalizacion","hospitalizaciones",
+    "urgencias","reciennacidos","medicamentos","otrosServicios"
+]
 
-                    if k == "fechaNacimiento":
-                        dic[k] = f
-                    else:
-                        dic[k] = f"{f}-{h[:5]}" if h else f
-    return dic
-
-# ========================= ORDEN =========================
-
-ORDEN_SERVICIOS = {
-    "consultas":[
-        "codPrestador","fechaInicioAtencion","numAutorizacion","codConsulta",
-        "modalidadGrupoServicioTecSal","grupoServicios","codServicio",
-        "finalidadTecnologiaSalud","causaMotivoAtencion","codDiagnosticoPrincipal",
-        "codDiagnosticoRelacionado1","codDiagnosticoRelacionado2","codDiagnosticoRelacionado3",
-        "tipoDiagnosticoPrincipal","tipoDocumentoIdentificacion","numDocumentoIdentificacion",
-        "vrServicio","conceptoRecaudo","valorPagoModerador","numFEVPagoModerador","consecutivo"
-    ],
-    "procedimientos":[
-        "codPrestador","fechaInicioAtencion","idMIPRES","numAutorizacion","codProcedimiento",
-        "viaIngresoServicioSalud","modalidadGrupoServicioTecSal","grupoServicios","codServicio",
-        "finalidadTecnologiaSalud","tipoDocumentoIdentificacion","numDocumentoIdentificacion",
-        "codDiagnosticoPrincipal","codDiagnosticoRelacionado","codComplicacion","vrServicio",
-        "conceptoRecaudo","valorPagoModerador","numFEVPagoModerador","consecutivo"
-    ],
-    "urgencias":[
-        "codPrestador","fechaInicioAtencion","causaMotivoAtencion","codDiagnosticoPrincipal",
-        "codDiagnosticoPrincipalE","codDiagnosticoRelacionadoE1","codDiagnosticoRelacionadoE2",
-        "codDiagnosticoRelacionadoE3","condicionDestinoUsuarioEgreso","codDiagnosticoCausaMuerte",
-        "fechaEgreso","consecutivo"
-    ],
-    "hospitalizacion":[
-        "codPrestador","viaIngresoServicioSalud","fechaInicioAtencion","numAutorizacion",
-        "causaMotivoAtencion","codDiagnosticoPrincipal","codDiagnosticoPrincipalE",
-        "codDiagnosticoRelacionadoE1","codDiagnosticoRelacionadoE2","codDiagnosticoRelacionadoE3",
-        "codComplicacion","condicionDestinoUsuarioEgreso","codDiagnosticoCausaMuerte","fechaEgreso",
-        "consecutivo"
-    ],
-    "reciennacidos":[
-        "codPrestador","tipoDocumentoIdentificacion","numDocumentoIdentificacion","fechaNacimiento",
-        "edadGestacional","numConsultasCPrenatal","codSexoBiologico","peso","codDiagnosticoPrincipal",
-        "condicionDestinoUsuarioEgreso","codDiagnosticoCausaMuerte","fechaEgreso","consecutivo"
-    ],
-    "medicamentos":[
-        "codPrestador","numAutorizacion","idMIPRES","fechaDispensAdmon","codDiagnosticoPrincipal",
-        "codDiagnosticoRelacionado","tipoMedicamento","codTecnologiaSalud","nomTecnologiaSalud",
-        "concentracionMedicamento","unidadMedida","formaFarmaceutica","unidadMinDispensa",
-        "cantidadMedicamento","diasTratamiento","tipoDocumentoIdentificacion",
-        "numDocumentoIdentificacion","vrUnitMedicamento","vrServicio","conceptoRecaudo",
-        "valorPagoModerador","numFEVPagoModerador","consecutivo"
-    ],
-    "otrosservicios":[
-        "codPrestador","numAutorizacion","idMIPRES","fechaSuministroTecnologia","tipoOS",
-        "codTecnologiaSalud","nomTecnologiaSalud","cantidadOS","tipoDocumentoIdentificacion",
-        "numDocumentoIdentificacion","vrUnitOS","vrServicio","conceptoRecaudo",
-        "valorPagoModerador","numFEVPagoModerador","consecutivo"
-    ]
+MAPA_SERVICIOS_JSON = {
+    "consultas": "consultas",
+    "procedimientos": "procedimientos",
+    "hospitalizacion": "hospitalizacion",
+    "hospitalizaciones": "hospitalizaciones",
+    "urgencias": "urgencias",
+    "reciennacidos": "reciennacidos",
+    "medicamentos": "medicamentos",
+    "otrosservicios": "otrosServicios"
 }
-
-def ordenar_campos(servicios):
-    out = {}
-    for t, regs in servicios.items():
-        orden = ORDEN_SERVICIOS.get(t.lower(), [])
-        out[t] = []
-        for r in regs:
-            nuevo = {k:r.get(k) for k in orden if k in r}
-            for k in r:
-                if k not in nuevo:
-                    nuevo[k] = r[k]
-            out[t].append(nuevo)
-    return out
 
 # ========================= JSON ➜ EXCEL =========================
 
-def json_to_excel(files):
+def json_to_excel(files, tipo_factura):
 
-    datos = {}
+    datos = {tipo: [] for tipo in ["usuarios"] + list(set([s.lower() for s in TIPOS_SERVICIOS]))}
 
     for archivo in files:
+
         data = json.load(archivo)
-        factura = _to_str_preserve(data.get("numFactura"))
+        num_factura = _to_str_preserve(data.get("numFactura"))
+        archivo_origen = os.path.splitext(getattr(archivo, "name", "archivo"))[0]
         usuarios = data.get("usuarios", [])
 
-        for u in usuarios:
-            servicios = u.get("servicios", {})
-            u_clean = u.copy()
-            u_clean.pop("servicios", None)
-            u_clean["numFactura"] = factura
+        for usuario in usuarios:
 
-            datos.setdefault("usuarios", []).append(u_clean)
+            servicios = usuario.get("servicios", {})
+            usuario_limpio = usuario.copy()
+            usuario_limpio.pop("servicios", None)
 
-            for tipo, regs in servicios.items():
-                for r in regs:
-                    r["numFactura"] = factura
-                    r["documento_usuario"] = u.get("numDocumentoIdentificacion")
-                    datos.setdefault(tipo.lower(), []).append(r)
+            usuario_limpio["archivo_origen"] = archivo_origen
+            usuario_limpio["numFactura"] = num_factura
 
-    buffer = BytesIO()
+            datos["usuarios"].append(usuario_limpio)
 
-    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-        for k, v in datos.items():
-            pd.DataFrame(v).to_excel(writer, sheet_name=k[:31], index=False)
+            for tipo, registros in servicios.items():
 
-    buffer.seek(0)
-    return buffer
+                tipo_normalizado = tipo.lower()
+
+                if tipo_normalizado in datos:
+
+                    for reg in registros:
+
+                        reg = reg.copy()
+                        reg["numFactura"] = num_factura
+                        reg["documento_usuario"] = usuario.get("numDocumentoIdentificacion")
+                        reg["archivo_origen"] = archivo_origen
+
+                        datos[tipo_normalizado].append(reg)
+
+    output = BytesIO()
+
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        for tipo, registros in datos.items():
+            if registros:
+                df = pd.DataFrame(registros)
+                sheet = tipo.capitalize()[:31]
+                df.to_excel(writer, sheet_name=sheet, index=False)
+
+    output.seek(0)
+    return output
 
 # ========================= EXCEL ➜ JSON =========================
 
-def excel_to_json(file, nit):
+def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
 
-    xlsx = pd.read_excel(file, sheet_name=None, dtype=str)
-    dfs = {k.lower():v for k,v in xlsx.items()}
+    xlsx = pd.read_excel(archivo_excel, sheet_name=None, dtype=str)
+    dataframes = {str(k).lower(): v for k, v in xlsx.items()}
 
-    usuarios = dfs["usuarios"]
-    servicios = [k for k in dfs if k!="usuarios"]
+    if "usuarios" not in dataframes:
+        st.error("El Excel no contiene hoja usuarios")
+        return None
 
-    salida = {}
-    facturas = usuarios["numFactura"].dropna().unique()
+    for k, df in dataframes.items():
+        df = df.where(pd.notna(df), None)
+        dataframes[k] = df
 
-    for f in facturas:
+    usuarios_df = dataframes["usuarios"]
+    tipos_servicios = [k for k in dataframes if k != "usuarios"]
 
-        f = _to_str_preserve(f)
+    salida_archivos = {}
+    facturas = usuarios_df["numFactura"].dropna().unique()
+
+    for factura in facturas:
+
+        factura_str = _to_str_preserve(factura)
         usuarios_final = []
 
-        for _, u in usuarios[usuarios["numFactura"]==f].iterrows():
+        usuarios_factura = usuarios_df[usuarios_df["numFactura"] == factura_str]
 
-            doc = u.get("numDocumentoIdentificacion")
-            u_dict = u.to_dict()
-            u_dict.pop("numFactura", None)
+        for _, usuario in usuarios_factura.iterrows():
+
+            usuario_dict = usuario.to_dict()
+            doc = usuario_dict.get("numDocumentoIdentificacion") or usuario_dict.get("documento_usuario")
+
+            usuario_limpio = usuario_dict.copy()
+            usuario_limpio.pop("archivo_origen", None)
+            usuario_limpio.pop("numFactura", None)
 
             servicios_dict = {}
 
-            for s in servicios:
-                df = dfs[s]
-                regs = df[(df["numFactura"]==f)&(df["documento_usuario"]==doc)]
+            for tipo in tipos_servicios:
 
-                if not regs.empty:
-                    regs = regs.drop(columns=["numFactura","documento_usuario"], errors="ignore")
-                    servicios_dict[s] = [r.to_dict() for _,r in regs.iterrows()]
+                df_tipo = dataframes[tipo]
 
-            servicios_dict = ordenar_campos(servicios_dict)
+                registros = df_tipo[
+                    (df_tipo["numFactura"] == factura_str) &
+                    (df_tipo["documento_usuario"] == doc)
+                ]
 
-            u_dict["servicios"] = servicios_dict
-            usuarios_final.append(u_dict)
+                if not registros.empty:
 
-        json_out = {
-            "numDocumentoIdObligado": nit,
-            "numFactura": f,
+                    registros = registros.drop(
+                        columns=["numFactura", "documento_usuario", "archivo_origen"],
+                        errors="ignore"
+                    )
+
+                    registros_limpios = [r.to_dict() for _, r in registros.iterrows()]
+                    tipo_json = MAPA_SERVICIOS_JSON.get(tipo.lower(), tipo)
+                    servicios_dict[tipo_json] = registros_limpios
+
+            usuario_limpio["servicios"] = servicios_dict
+            usuarios_final.append(usuario_limpio)
+
+        salida_json = forzar_tipos({
+            "numDocumentoIdObligado": nit_obligado,
+            "numFactura": factura_str,
             "tipoNota": None,
             "numNota": None,
             "usuarios": usuarios_final
+        })
+
+        salida_json = formatear_fechas(salida_json)
+
+        salida_archivos[f"{factura_str}_RIPS.json"] = json.dumps(
+            salida_json,
+            ensure_ascii=False,
+            indent=2,
+            default=json_friendly
+        )
+
+    if tipo_factura == "PGP":
+        contenido = list(salida_archivos.values())[0]
+        return {
+            "tipo": "único",
+            "contenido": contenido,
+            "nombre": f"Factura_RIPS_{tipo_factura}.json"
         }
 
-        json_out = limpiar_fechas(json_out)
+    return {"tipo": "zip", "contenido": salida_archivos}
 
-        salida[f"{f}.json"] = json.dumps(json_out, indent=2, ensure_ascii=False, default=json_friendly)
-
-    return salida
-
-# ========================= APP =========================
+# ========================= MAIN =========================
 
 def main():
 
-    if "auth" not in st.session_state:
-        st.session_state["auth"] = False
+    if "autenticado" not in st.session_state:
+        st.session_state["autenticado"] = False
 
-    if not st.session_state["auth"]:
+    if not st.session_state["autenticado"]:
         login()
         return
 
-    modo = st.radio("Modo", [
-        "JSON ➜ Excel",
-        "Excel ➜ JSON"
-    ])
+    st.sidebar.write(f"Usuario: {st.session_state['usuario']}")
 
-    nit = st.text_input("NIT", "900364721")
+    if st.sidebar.button("Cerrar sesión"):
+        st.session_state["autenticado"] = False
+        st.rerun()
 
-    if "JSON" in modo:
-        files = st.file_uploader("Sube JSON", type=["json"], accept_multiple_files=True)
-        if files and st.button("Convertir"):
-            excel = json_to_excel(files)
-            st.download_button("Descargar Excel", excel, "RIPS.xlsx")
+    st.subheader("Transformador RIPS PGP & EVENTO")
 
-    else:
-        file = st.file_uploader("Sube Excel", type=["xlsx"])
-        if file and st.button("Convertir"):
-            res = excel_to_json(file, nit)
+    modo = st.radio(
+        "Tipo de conversión",
+        [
+            "JSON ➜ Excel (PGP-CAPITA)",
+            "Excel ➜ JSON (PGP-CAPITA)",
+            "JSON ➜ Excel (Evento)",
+            "Excel ➜ JSON (Evento)"
+        ]
+    )
 
-            buffer = BytesIO()
-            with zipfile.ZipFile(buffer, "w") as z:
-                for n,c in res.items():
-                    z.writestr(n, c)
+    nit_obligado = st.text_input("NIT obligado", value="900364721")
 
-            buffer.seek(0)
-            st.download_button("Descargar ZIP", buffer, "RIPS_JSON.zip")
+    resultado = None
+
+    if "JSON ➜ Excel" in modo:
+
+        archivos = st.file_uploader("Sube JSON", type=["json"], accept_multiple_files=True)
+
+        if archivos and st.button("Convertir"):
+
+            tipo_factura = "PGP" if "PGP-CAPITA" in modo else "EVENTO"
+
+            excel_data = json_to_excel(archivos, tipo_factura)
+
+            st.download_button(
+                "Descargar Excel",
+                data=excel_data,
+                file_name=f"RIPS_Consolidado_{tipo_factura}.xlsx"
+            )
+
+    elif "Excel ➜ JSON" in modo:
+
+        archivo_excel = st.file_uploader("Sube Excel", type=["xlsx"])
+
+        if archivo_excel and st.button("Convertir"):
+
+            tipo_factura = "PGP" if "PGP-CAPITA" in modo else "EVENTO"
+
+            resultado = excel_to_json(archivo_excel, tipo_factura, nit_obligado)
+
+        if resultado:
+
+            if resultado["tipo"] == "único":
+
+                st.download_button(
+                    "Descargar JSON",
+                    data=resultado["contenido"].encode("utf-8"),
+                    file_name=resultado["nombre"]
+                )
+
+            else:
+
+                buffer = BytesIO()
+
+                with zipfile.ZipFile(buffer, "w") as zipf:
+
+                    for nombre, contenido in resultado["contenido"].items():
+                        zipf.writestr(nombre, contenido)
+
+                buffer.seek(0)
+
+                st.download_button(
+                    "Descargar ZIP",
+                    data=buffer,
+                    file_name="RIPS_Evento_JSONs.zip"
+                )
 
 def guard(fn):
     try:
         fn()
     except Exception as e:
-        st.error(str(e))
+        st.error("Excepción en tiempo de ejecución")
+        st.code("".join(traceback.format_exception(e)), language="python")
+        st.stop()
 
 guard(main)
