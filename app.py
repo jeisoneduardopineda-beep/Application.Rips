@@ -281,7 +281,7 @@ def main():
 
     nit_obligado = st.text_input("NIT obligado", value="900364721")
 
-    if "JSON ➜ Excel" in modo:
+   if "JSON ➜ Excel" in modo:
 
     archivos = st.file_uploader(
         "Sube JSON",
@@ -339,7 +339,7 @@ elif "Excel ➜ JSON" in modo:
                     data=buffer,
                     file_name="RIPS_JSON.zip"
                 )
-def guard(fn):
+    def guard(fn):
     try:
         fn()
     except Exception as e:
