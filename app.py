@@ -6,21 +6,10 @@ import zipfile
 from io import BytesIO
 import time
 import traceback
-
 import pandas as pd
 import streamlit as st
-import numpy as np
-from datetime import date, datetime
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-LOGO_PATH = os.path.join(BASE_DIR, "medidatarips_logo.png")
-page_icon = LOGO_PATH if os.path.isfile(LOGO_PATH) else None
-
-st.set_page_config(
-    page_title="Transformador RIPS PGP & EVENTO",
-    layout="centered",
-    page_icon=page_icon
-)
+st.set_page_config(page_title="Transformador RIPS PGP & EVENTO", layout="centered")
 
 # ========================= ORDEN SERVICIOS =========================
 
@@ -57,10 +46,7 @@ def _to_str_preserve(v):
         return None
     return s
 
-TIPOS_SERVICIOS = [
-    "consultas","procedimientos","hospitalizacion","urgencias",
-    "reciennacidos","medicamentos","otrosservicios"
-]
+TIPOS_SERVICIOS = ["consultas","procedimientos","hospitalizacion","urgencias","reciennacidos","medicamentos","otrosservicios"]
 
 # ========================= JSON ➜ EXCEL =========================
 
@@ -83,6 +69,7 @@ def json_to_excel(files, tipo_factura):
                         datos[tipo].append(reg)
 
     output = BytesIO()
+
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         for tipo, registros in datos.items():
             if registros:
@@ -142,13 +129,12 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
 
         salida_archivos[f"{factura_str}.json"] = json.dumps(salida_json, indent=2, ensure_ascii=False)
 
-    # 🔥 AQUÍ ESTABA TU ERROR
+    # 🔥 lógica correcta PGP vs EVENTO
     if tipo_factura == "PGP":
-        contenido = list(salida_archivos.values())[0]
         return {
-            "tipo": "único",
-            "contenido": contenido,
-            "nombre": f"Factura_RIPS_{tipo_factura}.json"
+            "tipo": "unico",
+            "contenido": list(salida_archivos.values())[0],
+            "nombre": "rips.json"
         }
 
     return {
@@ -162,24 +148,42 @@ def main():
 
     modo = st.radio("Tipo de conversión", [
         "JSON ➜ Excel (PGP-CAPITA)",
-        "Excel ➜ JSON (PGP-CAPITA)"
+        "Excel ➜ JSON (PGP-CAPITA)",
+        "JSON ➜ Excel (Evento)",
+        "Excel ➜ JSON (Evento)"
     ])
 
     nit = st.text_input("NIT obligado", value="900364721")
 
     if "JSON ➜ Excel" in modo:
+
         archivos = st.file_uploader("Sube JSON", type=["json"], accept_multiple_files=True)
+
         if archivos:
-            excel = json_to_excel(archivos, "PGP")
+            tipo = "PGP" if "PGP-CAPITA" in modo else "EVENTO"
+            excel = json_to_excel(archivos, tipo)
             st.download_button("Descargar Excel", excel, "rips.xlsx")
 
     elif "Excel ➜ JSON" in modo:
-        archivo = st.file_uploader("Sube Excel", type=["xlsx"])
-        if archivo:
-            resultado = excel_to_json(archivo, "PGP", nit)
 
-            if resultado["tipo"] == "único":
+        archivo = st.file_uploader("Sube Excel", type=["xlsx"])
+
+        if archivo:
+            tipo = "PGP" if "PGP-CAPITA" in modo else "EVENTO"
+            resultado = excel_to_json(archivo, tipo, nit)
+
+            if resultado["tipo"] == "unico":
                 st.download_button("Descargar JSON", resultado["contenido"], resultado["nombre"])
+
+            else:
+                buffer = BytesIO()
+                with zipfile.ZipFile(buffer, "w") as zipf:
+                    for nombre, contenido in resultado["contenido"].items():
+                        zipf.writestr(nombre, contenido)
+
+                buffer.seek(0)
+
+                st.download_button("Descargar ZIP", buffer, "rips.zip")
 
 # ========================= RUN =========================
 
