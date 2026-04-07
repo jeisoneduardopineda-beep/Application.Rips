@@ -36,13 +36,53 @@ def login():
 # ========================= ORDEN =========================
 
 ORDEN_SERVICIOS = {
-    "consultas": ["codPrestador","fechaInicioAtencion","numAutorizacion","codConsulta","modalidadGrupoServicioTecSal","grupoServicios","codServicio","finalidadTecnologiaSalud","causaMotivoAtencion","codDiagnosticoPrincipal","codDiagnosticoRelacionado1","codDiagnosticoRelacionado2","codDiagnosticoRelacionado3","tipoDiagnosticoPrincipal","tipoDocumentoIdentificacion","numDocumentoIdentificacion","vrServicio","conceptoRecaudo","valorPagoModerador","numFEVPagoModerador","consecutivo"],
-    "procedimientos": ["codPrestador","fechaInicioAtencion","idMIPRES","numAutorizacion","codProcedimiento","viaIngresoServicioSalud","modalidadGrupoServicioTecSal","grupoServicios","codServicio","finalidadTecnologiaSalud","tipoDocumentoIdentificacion","numDocumentoIdentificacion","codDiagnosticoPrincipal","codDiagnosticoRelacionado","codComplicacion","vrServicio","conceptoRecaudo","valorPagoModerador","numFEVPagoModerador","consecutivo"],
-    "urgencias": ["codPrestador","fechaInicioAtencion","causaMotivoAtencion","codDiagnosticoPrincipal","codDiagnosticoPrincipalE","codDiagnosticoRelacionadoE1","codDiagnosticoRelacionadoE2","codDiagnosticoRelacionadoE3","condicionDestinoUsuarioEgreso","codDiagnosticoCausaMuerte","fechaEgreso","consecutivo"],
-    "hospitalizacion": ["codPrestador","viaIngresoServicioSalud","fechaInicioAtencion","numAutorizacion","causaMotivoAtencion","codDiagnosticoPrincipal","codDiagnosticoPrincipalE","codDiagnosticoRelacionadoE1","codDiagnosticoRelacionadoE2","codDiagnosticoRelacionadoE3","codComplicacion","condicionDestinoUsuarioEgreso","codDiagnosticoCausaMuerte","fechaEgreso","consecutivo"],
-    "reciennacidos": ["codPrestador","tipoDocumentoIdentificacion","numDocumentoIdentificacion","fechaNacimiento","edadGestacional","numConsultasCPrenatal","codSexoBiologico","peso","codDiagnosticoPrincipal","condicionDestinoUsuarioEgreso","codDiagnosticoCausaMuerte","fechaEgreso","consecutivo"],
-    "medicamentos": ["codPrestador","numAutorizacion","idMIPRES","fechaDispensAdmon","codDiagnosticoPrincipal","codDiagnosticoRelacionado","tipoMedicamento","codTecnologiaSalud","nomTecnologiaSalud","concentracionMedicamento","unidadMedida","formaFarmaceutica","unidadMinDispensa","cantidadMedicamento","diasTratamiento","tipoDocumentoIdentificacion","numDocumentoIdentificacion","vrUnitMedicamento","vrServicio","conceptoRecaudo","valorPagoModerador","numFEVPagoModerador","consecutivo"],
-    "otrosservicios": ["codPrestador","numAutorizacion","idMIPRES","fechaSuministroTecnologia","tipoOS","codTecnologiaSalud","nomTecnologiaSalud","cantidadOS","tipoDocumentoIdentificacion","numDocumentoIdentificacion","vrUnitOS","vrServicio","conceptoRecaudo","valorPagoModerador","numFEVPagoModerador","consecutivo"]
+    "consultas": [
+        "codPrestador","fechaInicioAtencion","numAutorizacion","codConsulta",
+        "modalidadGrupoServicioTecSal","grupoServicios","codServicio",
+        "finalidadTecnologiaSalud","causaMotivoAtencion","codDiagnosticoPrincipal",
+        "codDiagnosticoRelacionado1","codDiagnosticoRelacionado2","codDiagnosticoRelacionado3",
+        "tipoDiagnosticoPrincipal","tipoDocumentoIdentificacion","numDocumentoIdentificacion",
+        "vrServicio","conceptoRecaudo","valorPagoModerador","numFEVPagoModerador","consecutivo"
+    ],
+    "procedimientos": [
+        "codPrestador","fechaInicioAtencion","idMIPRES","numAutorizacion","codProcedimiento",
+        "viaIngresoServicioSalud","modalidadGrupoServicioTecSal","grupoServicios","codServicio",
+        "finalidadTecnologiaSalud","tipoDocumentoIdentificacion","numDocumentoIdentificacion",
+        "codDiagnosticoPrincipal","codDiagnosticoRelacionado","codComplicacion","vrServicio",
+        "conceptoRecaudo","valorPagoModerador","numFEVPagoModerador","consecutivo"
+    ],
+    "urgencias": [
+        "codPrestador","fechaInicioAtencion","causaMotivoAtencion","codDiagnosticoPrincipal",
+        "codDiagnosticoPrincipalE","codDiagnosticoRelacionadoE1","codDiagnosticoRelacionadoE2",
+        "codDiagnosticoRelacionadoE3","condicionDestinoUsuarioEgreso","codDiagnosticoCausaMuerte",
+        "fechaEgreso","consecutivo"
+    ],
+    "hospitalizacion": [
+        "codPrestador","viaIngresoServicioSalud","fechaInicioAtencion","numAutorizacion",
+        "causaMotivoAtencion","codDiagnosticoPrincipal","codDiagnosticoPrincipalE",
+        "codDiagnosticoRelacionadoE1","codDiagnosticoRelacionadoE2","codDiagnosticoRelacionadoE3",
+        "codComplicacion","condicionDestinoUsuarioEgreso","codDiagnosticoCausaMuerte","fechaEgreso",
+        "consecutivo"
+    ],
+    "reciennacidos": [
+        "codPrestador","tipoDocumentoIdentificacion","numDocumentoIdentificacion","fechaNacimiento",
+        "edadGestacional","numConsultasCPrenatal","codSexoBiologico","peso","codDiagnosticoPrincipal",
+        "condicionDestinoUsuarioEgreso","codDiagnosticoCausaMuerte","fechaEgreso","consecutivo"
+    ],
+    "medicamentos": [
+        "codPrestador","numAutorizacion","idMIPRES","fechaDispensAdmon","codDiagnosticoPrincipal",
+        "codDiagnosticoRelacionado","tipoMedicamento","codTecnologiaSalud","nomTecnologiaSalud",
+        "concentracionMedicamento","unidadMedida","formaFarmaceutica","unidadMinDispensa",
+        "cantidadMedicamento","diasTratamiento","tipoDocumentoIdentificacion",
+        "numDocumentoIdentificacion","vrUnitMedicamento","vrServicio","conceptoRecaudo",
+        "valorPagoModerador","numFEVPagoModerador","consecutivo"
+    ],
+    "otrosservicios": [
+        "codPrestador","numAutorizacion","idMIPRES","fechaSuministroTecnologia","tipoOS",
+        "codTecnologiaSalud","nomTecnologiaSalud","cantidadOS","tipoDocumentoIdentificacion",
+        "numDocumentoIdentificacion","vrUnitOS","vrServicio","conceptoRecaudo",
+        "valorPagoModerador","numFEVPagoModerador","consecutivo"
+    ]
 }
 
 def ordenar_campos(tipo, registros):
@@ -51,110 +91,152 @@ def ordenar_campos(tipo, registros):
         return registros
 
     salida = []
+
     for reg in registros:
-        nuevo = {campo: reg.get(campo) for campo in orden}
-        nuevo.update({k:v for k,v in reg.items() if k not in nuevo})
+        if not isinstance(reg, dict):
+            continue
+
+        nuevo = {}
+
+        for campo in orden:
+            nuevo[campo] = reg.get(campo)
+
+        for k, v in reg.items():
+            if k not in nuevo:
+                nuevo[k] = v
+
         salida.append(nuevo)
+
     return salida
 
 # ========================= TIPOS =========================
 
-CAMPOS_NUMERICOS = {"vrServicio","valorPagoModerador","consecutivo","codServicio"}
+CAMPOS_NUMERICOS = {
+    "vrServicio","valorPagoModerador","consecutivo","codServicio",
+    "cantidadMedicamento","diasTratamiento","vrUnitMedicamento",
+    "cantidadOS","vrUnitOS"
+}
 
 def convertir(k, v):
-    if v in [None, "", "nan", "None"]:
+    if v is None or str(v).lower() in ["nan", "none", ""]:
         return None
+
     if k in CAMPOS_NUMERICOS:
         try:
             return float(v) if "." in str(v) else int(v)
         except:
             return None
+
     return str(v)
 
 def forzar_tipos(data):
     if isinstance(data, dict):
-        return {k: forzar_tipos(v) if isinstance(v,(dict,list)) else convertir(k,v) for k,v in data.items()}
+        return {k: forzar_tipos(v) if isinstance(v, (dict, list)) else convertir(k, v) for k, v in data.items()}
     elif isinstance(data, list):
         return [forzar_tipos(i) for i in data]
     return data
 
 # ========================= FECHAS =========================
 
-def convertir_fecha(k,v):
-    if v is None:
-        return None
-    if "fecha" not in k.lower():
+def convertir_fecha(k, v):
+    if not v or "fecha" not in k.lower():
         return v
+
     try:
-        fecha = pd.to_datetime(v, errors="coerce")
-        if pd.isna(fecha):
-            return None
-        if k in ["fechaDispensAdmon","fechaInicioAtencion","fechaEgreso"]:
-            return fecha.strftime("%Y-%m-%d-%H-%M")
-        if k == "fechaNacimiento":
-            return fecha.strftime("%Y-%m-%d")
-        return fecha.strftime("%Y-%m-%d")
+        v = str(v)
+        if " " in v:
+            f, h = v.split(" ")
+            return f"{f}-{h[:5]}"
+        return v
     except:
-        return None
+        return v
 
 def formatear_fechas(data):
     if isinstance(data, dict):
-        return {k: formatear_fechas(v) if isinstance(v,(dict,list)) else convertir_fecha(k,v) for k,v in data.items()}
+        return {k: formatear_fechas(v) if isinstance(v, (dict, list)) else convertir_fecha(k, v) for k, v in data.items()}
     elif isinstance(data, list):
         return [formatear_fechas(i) for i in data]
     return data
 
-# ========================= CONVERSIONES =========================
+# ========================= JSON ➜ EXCEL =========================
 
-def json_to_excel(files, tipo):
+def json_to_excel(files, tipo_factura):
+
     datos = {}
+
     for archivo in files:
         data = json.load(archivo)
-        factura = data.get("numFactura")
+        num_factura = data.get("numFactura")
 
         for usuario in data.get("usuarios", []):
-            for tipo_s, regs in usuario.get("servicios", {}).items():
-                datos.setdefault(tipo_s.lower(), [])
-                for r in ordenar_campos(tipo_s, regs):
-                    r["numFactura"] = factura
-                    datos[tipo_s.lower()].append(r)
+            servicios = usuario.get("servicios", {})
+
+            for tipo, registros in servicios.items():
+
+                tipo = tipo.lower()
+
+                if tipo not in datos:
+                    datos[tipo] = []
+
+                registros = ordenar_campos(tipo, registros)
+
+                for reg in registros:
+                    if isinstance(reg, dict):
+                        reg["numFactura"] = num_factura
+                        datos[tipo].append(reg)
 
     output = BytesIO()
+
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        for k,v in datos.items():
-            pd.DataFrame(v).to_excel(writer, sheet_name=k[:31], index=False)
+        for tipo, registros in datos.items():
+            df = pd.DataFrame(registros)
+            df.to_excel(writer, sheet_name=tipo[:31], index=False)
 
     output.seek(0)
     return output
 
+# ========================= EXCEL ➜ JSON =========================
 
-def excel_to_json(archivo, tipo, nit):
-    xlsx = pd.read_excel(archivo, sheet_name=None, dtype=str)
-    dfs = {k.lower(): v.where(pd.notna(v), None) for k,v in xlsx.items()}
+def excel_to_json(archivo_excel, tipo_factura, nit):
+
+    xlsx = pd.read_excel(archivo_excel, sheet_name=None, dtype=str)
+    dfs = {k.lower(): v.where(pd.notna(v), None) for k, v in xlsx.items()}
 
     usuarios = dfs.get("usuarios")
+
     if usuarios is None:
-        st.error("Falta hoja usuarios")
+        st.error("El Excel no tiene hoja 'usuarios'")
         return None
 
     salida = {}
-    for factura in usuarios["numFactura"].dropna().unique():
+    facturas = usuarios["numFactura"].dropna().unique()
+
+    for factura in facturas:
 
         usuarios_final = []
-        uf = usuarios[usuarios["numFactura"]==factura]
 
-        for _,u in uf.iterrows():
+        usuarios_f = usuarios[usuarios["numFactura"] == factura]
+
+        for _, u in usuarios_f.iterrows():
+
             u_dict = u.to_dict()
-            u_dict.pop("numFactura",None)
+            u_dict.pop("numFactura", None)
 
-            servicios={}
-            for tipo_s,df in dfs.items():
-                if tipo_s=="usuarios": continue
-                reg = df[df["numFactura"]==factura]
+            servicios = {}
+
+            for tipo, df in dfs.items():
+
+                if tipo == "usuarios":
+                    continue
+
+                reg = df[df["numFactura"] == factura]
+
                 if not reg.empty:
-                    servicios[tipo_s] = ordenar_campos(tipo_s,[r.to_dict() for _,r in reg.iterrows()])
+                    lista = [r.to_dict() for _, r in reg.iterrows()]
+                    lista = ordenar_campos(tipo, lista)
+                    servicios[tipo] = lista
 
-            u_dict["servicios"]=servicios
+            u_dict["servicios"] = servicios
             usuarios_final.append(u_dict)
 
         salida_json = {
@@ -165,25 +247,34 @@ def excel_to_json(archivo, tipo, nit):
             "usuarios": usuarios_final
         }
 
-        salida_json = formatear_fechas(forzar_tipos(salida_json))
+        salida_json = forzar_tipos(salida_json)
+        salida_json = formatear_fechas(salida_json)
+
         salida[f"{factura}.json"] = json.dumps(salida_json, indent=2, ensure_ascii=False)
 
-    if tipo=="PGP":
-        return {"tipo":"unico","contenido":list(salida.values())[0]}
-    return {"tipo":"zip","contenido":salida}
+    if tipo_factura == "PGP":
+        return {"tipo": "unico", "contenido": list(salida.values())[0], "nombre": "rips.json"}
+
+    return {"tipo": "zip", "contenido": salida}
 
 # ========================= MAIN =========================
 
 def main():
 
     if "autenticado" not in st.session_state:
-        st.session_state["autenticado"]=False
+        st.session_state["autenticado"] = False
 
     if not st.session_state["autenticado"]:
         login()
         return
 
-    modo = st.radio("Tipo de conversión",[
+    st.sidebar.write(f"Usuario: {st.session_state['usuario']}")
+
+    if st.sidebar.button("Cerrar sesión"):
+        st.session_state["autenticado"] = False
+        st.rerun()
+
+    modo = st.radio("Tipo de conversión", [
         "JSON ➜ Excel (PGP-CAPITA)",
         "Excel ➜ JSON (PGP-CAPITA)",
         "JSON ➜ Excel (Evento)",
@@ -192,34 +283,34 @@ def main():
 
     nit = st.text_input("NIT obligado", value="900364721")
 
-    archivos=None
-    archivo=None
-
     if "JSON ➜ Excel" in modo:
+
         archivos = st.file_uploader("Sube JSON", type=["json"], accept_multiple_files=True)
 
-    else:
-        archivo = st.file_uploader("Sube Excel", type=["xlsx"])
-
-    if st.button("Convertir"):
-
-        tipo = "PGP" if "PGP-CAPITA" in modo else "EVENTO"
-
         if archivos:
+            tipo = "PGP" if "PGP-CAPITA" in modo else "EVENTO"
             excel = json_to_excel(archivos, tipo)
             st.download_button("Descargar Excel", excel, "rips.xlsx")
 
-        elif archivo:
+    elif "Excel ➜ JSON" in modo:
+
+        archivo = st.file_uploader("Sube Excel", type=["xlsx"])
+
+        if archivo:
+            tipo = "PGP" if "PGP-CAPITA" in modo else "EVENTO"
             resultado = excel_to_json(archivo, tipo, nit)
 
             if resultado:
-                if resultado["tipo"]=="unico":
-                    st.download_button("Descargar JSON", resultado["contenido"], "rips.json")
+
+                if resultado["tipo"] == "unico":
+                    st.download_button("Descargar JSON", resultado["contenido"], resultado["nombre"])
+
                 else:
                     buffer = BytesIO()
-                    with zipfile.ZipFile(buffer,"w") as z:
-                        for n,c in resultado["contenido"].items():
-                            z.writestr(n,c)
+                    with zipfile.ZipFile(buffer, "w") as z:
+                        for n, c in resultado["contenido"].items():
+                            z.writestr(n, c)
+
                     buffer.seek(0)
                     st.download_button("Descargar ZIP", buffer, "rips.zip")
 
@@ -228,7 +319,7 @@ def main():
 def guard(fn):
     try:
         fn()
-    except Exception:
+    except Exception as e:
         st.error("Error en ejecución")
         st.code(traceback.format_exc())
 
