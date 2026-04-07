@@ -74,10 +74,18 @@ CAMPOS_TEXTO = {
 }
 
 CAMPOS_NUMERICOS = {
-    "vrServicio","valorPagoModerador","consecutivo","codServicio",
-    "concentracionMedicamento","unidadMinDispensa","cantidadMedicamento",
-    "diasTratamiento","vrUnitMedicamento","unidadMedida",
-    "cantidadOS","vrUnitOS"
+    "vrServicio",
+    "valorPagoModerador",
+    "consecutivo",
+    "codServicio",
+    "concentracionMedicamento",
+    "unidadMinDispensa",
+    "cantidadMedicamento",
+    "diasTratamiento",
+    "vrUnitMedicamento",
+    "unidadMedida",
+    "cantidadOS",
+    "vrUnitOS"
 }
 
 # ========================= FUNCION TIPADO =========================
@@ -122,73 +130,34 @@ def forzar_tipos(diccionario):
 
     return diccionario
 
-# ========================= 🔥 FUNCION NUEVA =========================
-
-def formatear_fechas(data):
-
-    def convertir(campo, valor):
-
-        if valor is None:
-            return None
-
-        try:
-            dt = pd.to_datetime(valor, errors="coerce")
-
-            if pd.isna(dt):
-                return None
-
-            if campo == "fechaNacimiento":
-                return dt.strftime("%Y-%m-%d")
-
-            if campo in ["fechaInicioAtencion", "fechaDispensAdmon", "fechaEgreso"]:
-                return dt.strftime("%Y-%m-%d-%H:%M")
-
-            return valor
-
-        except:
-            return None
-
-    def recorrer(obj):
-
-        if isinstance(obj, dict):
-            nuevo = {}
-
-            for k, v in obj.items():
-
-                v = convertir(k, v)
-
-                if isinstance(v, dict):
-                    v = recorrer(v)
-
-                elif isinstance(v, list):
-                    v = [recorrer(i) if isinstance(i, dict) else i for i in v]
-
-                nuevo[k] = v
-
-            return nuevo
-
-        return obj
-
-    return recorrer(data)
-
 # ========================= UTILIDADES =========================
 
 def json_friendly(o):
-    if isinstance(o, (np.integer,)): return int(o)
-    if isinstance(o, (np.floating,)): return float(o)
-    if isinstance(o, (np.bool_,)): return bool(o)
-    if o is pd.NaT: return None
+    if isinstance(o, (np.integer,)):
+        return int(o)
+    if isinstance(o, (np.floating,)):
+        return float(o)
+    if isinstance(o, (np.bool_,)):
+        return bool(o)
+    if o is pd.NaT:
+        return None
     try:
-        if pd.isna(o): return None
-    except: pass
-    if isinstance(o, (pd.Timestamp, datetime)): return o.strftime("%Y-%m-%d %H:%M")
-    if isinstance(o, date): return o.strftime("%Y-%m-%d")
+        if pd.isna(o):
+            return None
+    except:
+        pass
+    if isinstance(o, (pd.Timestamp, datetime)):
+        return o.strftime("%Y-%m-%d %H:%M")
+    if isinstance(o, date):
+        return o.strftime("%Y-%m-%d")
     return o
 
 def _to_str_preserve(v):
-    if v is None: return None
+    if v is None:
+        return None
     s = str(v)
-    if s.lower() in {"nan", "none", ""}: return None
+    if s.lower() in {"nan", "none", ""}:
+        return None
     return s
 
 TIPOS_SERVICIOS = [
@@ -208,18 +177,20 @@ MAPA_SERVICIOS_JSON = {
 }
 
 # ========================= JSON ➜ EXCEL =========================
-# (SIN CAMBIOS)
 
 def json_to_excel(files, tipo_factura):
+
     datos = {tipo: [] for tipo in ["usuarios"] + list(set([s.lower() for s in TIPOS_SERVICIOS]))}
 
     for archivo in files:
+
         data = json.load(archivo)
         num_factura = _to_str_preserve(data.get("numFactura"))
         archivo_origen = os.path.splitext(getattr(archivo, "name", "archivo"))[0]
         usuarios = data.get("usuarios", [])
 
         for usuario in usuarios:
+
             servicios = usuario.get("servicios", {})
             usuario_limpio = usuario.copy()
             usuario_limpio.pop("servicios", None)
@@ -230,14 +201,18 @@ def json_to_excel(files, tipo_factura):
             datos["usuarios"].append(usuario_limpio)
 
             for tipo, registros in servicios.items():
+
                 tipo_normalizado = tipo.lower()
 
                 if tipo_normalizado in datos:
+
                     for reg in registros:
+
                         reg = reg.copy()
                         reg["numFactura"] = num_factura
                         reg["documento_usuario"] = usuario.get("numDocumentoIdentificacion")
                         reg["archivo_origen"] = archivo_origen
+
                         datos[tipo_normalizado].append(reg)
 
     output = BytesIO()
@@ -314,16 +289,16 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
             usuario_limpio["servicios"] = servicios_dict
             usuarios_final.append(usuario_limpio)
 
-        salida_json = forzar_tipos({
-            "numDocumentoIdObligado": nit_obligado,
-            "numFactura": factura_str,
-            "tipoNota": None,
-            "numNota": None,
-            "usuarios": usuarios_final
-        })
+       salida_json = forzar_tipos({
+    "numDocumentoIdObligado": nit_obligado,
+    "numFactura": factura_str,
+    "tipoNota": None,
+    "numNota": None,
+    "usuarios": usuarios_final
+})
 
-        # 🔥 AQUI SE APLICA EL AJUSTE
-        salida_json = formatear_fechas(salida_json)
+# 🔥 SOLO ESTO SE AGREGA
+salida_json = formatear_fechas(salida_json)
 
         salida_archivos[f"{factura_str}_RIPS.json"] = json.dumps(
             salida_json,
@@ -342,10 +317,12 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
 
     return {"tipo": "zip", "contenido": salida_archivos}
 
+
+
 # ========================= MAIN =========================
-# (SIN CAMBIOS)
 
 def main():
+
     if "autenticado" not in st.session_state:
         st.session_state["autenticado"] = False
 
