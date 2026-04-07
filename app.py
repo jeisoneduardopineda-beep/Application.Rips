@@ -149,18 +149,10 @@ def json_friendly(o):
     except:
         pass
     if isinstance(o, (pd.Timestamp, datetime)):
-        return o.strftime("%Y-%m-%d %H:%M")
+        return o.strftime("%Y-%m-%d-%H:%M")  # 🔥 SIN SEGUNDOS
     if isinstance(o, date):
         return o.strftime("%Y-%m-%d")
     return o
-
-def _to_str_preserve(v):
-    if v is None:
-        return None
-    s = str(v)
-    if s.lower() in {"nan", "none", ""}:
-        return None
-    return s
 
 TIPOS_SERVICIOS = [
     "consultas","procedimientos","hospitalizacion","hospitalizaciones",
@@ -249,6 +241,41 @@ def ordenar_campos_servicios(servicios_dict):
         nuevo[tipo] = lista
 
     return nuevo
+
+
+def limpiar_fechas(diccionario):
+    if isinstance(diccionario, dict):
+        for k, v in diccionario.items():
+
+            if isinstance(v, dict):
+                diccionario[k] = limpiar_fechas(v)
+
+            elif isinstance(v, list):
+                diccionario[k] = [limpiar_fechas(i) if isinstance(i, dict) else i for i in v]
+
+            else:
+                if isinstance(v, str) and "fecha" in k.lower():
+
+                    # 🔥 eliminar segundos
+                    if len(v) >= 19:
+                        v = v[:16]
+
+                    # separar
+                    if " " in v:
+                        fecha, hora = v.split(" ")
+                    else:
+                        fecha, hora = v, None
+
+                    # 🔥 regla especial
+                    if k == "fechaNacimiento":
+                        diccionario[k] = fecha
+                    else:
+                        if hora:
+                            diccionario[k] = f"{fecha}-{hora[:5]}"
+                        else:
+                            diccionario[k] = fecha
+
+    return diccionario
 # ========================= JSON ➜ EXCEL =========================
 
 def json_to_excel(files, tipo_factura):
