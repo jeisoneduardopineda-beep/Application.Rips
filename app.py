@@ -126,7 +126,21 @@ def login():
             st.error("Credenciales incorrectas")
 
 # ========================= CONFIG TIPOS =========================
+# ========================= FUNCIONES AUXILIARES =========================
 
+def _to_str_preserve(v):
+    if v is None:
+        return None
+    s = str(v)
+    if s.lower() in {"nan", "none", ""}:
+        return None
+    return s
+
+
+TIPOS_SERVICIOS = [
+    "consultas","procedimientos","hospitalizacion","hospitalizaciones",
+    "urgencias","reciennacidos","medicamentos","otrosservicios"
+]
 CAMPOS_TEXTO = {...}  # (igual que tu código original)
 CAMPOS_NUMERICOS = {...}
 
