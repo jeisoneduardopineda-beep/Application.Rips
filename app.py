@@ -137,7 +137,6 @@ def forzar_tipos(data):
     return data
 
 # ========================= FECHAS =========================
-
 def convertir_fecha(k, v):
 
     if v is None:
@@ -147,17 +146,20 @@ def convertir_fecha(k, v):
         return v
 
     try:
-        # 🔹 si viene como datetime real
-        if isinstance(v, (datetime, pd.Timestamp)):
-            if "hora" in k.lower() or "inicio" in k.lower():
-                return v.strftime("%Y-%m-%d %H:%M")
-            return v.strftime("%Y-%m-%d")
-
         v = str(v).strip()
 
         if v.lower() in ["nan", "none", ""]:
             return None
 
+        fecha = pd.to_datetime(v, errors="coerce")
+
+        if pd.isna(fecha):
+            return None
+
+        return fecha.strftime("%Y-%m-%d %H:%M") if "inicio" in k.lower() else fecha.strftime("%Y-%m-%d")
+
+    except:
+        return None
         # 🔹 intentar parsear automáticamente
         fecha = pd.to_datetime(v, errors="coerce")
 
