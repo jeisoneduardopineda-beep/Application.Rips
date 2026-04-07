@@ -35,7 +35,55 @@ def login():
 
 # ========================= ORDEN =========================
 
-ORDEN_SERVICIOS = {}  # 👈 deja tu diccionario real aquí
+ORDEN_SERVICIOS = {
+    "consultas": [
+        "codPrestador","fechaInicioAtencion","numAutorizacion","codConsulta",
+        "modalidadGrupoServicioTecSal","grupoServicios","codServicio",
+        "finalidadTecnologiaSalud","causaMotivoAtencion","codDiagnosticoPrincipal",
+        "codDiagnosticoRelacionado1","codDiagnosticoRelacionado2","codDiagnosticoRelacionado3",
+        "tipoDiagnosticoPrincipal","tipoDocumentoIdentificacion","numDocumentoIdentificacion",
+        "vrServicio","conceptoRecaudo","valorPagoModerador","numFEVPagoModerador","consecutivo"
+    ],
+    "procedimientos": [
+        "codPrestador","fechaInicioAtencion","idMIPRES","numAutorizacion","codProcedimiento",
+        "viaIngresoServicioSalud","modalidadGrupoServicioTecSal","grupoServicios","codServicio",
+        "finalidadTecnologiaSalud","tipoDocumentoIdentificacion","numDocumentoIdentificacion",
+        "codDiagnosticoPrincipal","codDiagnosticoRelacionado","codComplicacion","vrServicio",
+        "conceptoRecaudo","valorPagoModerador","numFEVPagoModerador","consecutivo"
+    ],
+    "urgencias": [
+        "codPrestador","fechaInicioAtencion","causaMotivoAtencion","codDiagnosticoPrincipal",
+        "codDiagnosticoPrincipalE","codDiagnosticoRelacionadoE1","codDiagnosticoRelacionadoE2",
+        "codDiagnosticoRelacionadoE3","condicionDestinoUsuarioEgreso","codDiagnosticoCausaMuerte",
+        "fechaEgreso","consecutivo"
+    ],
+    "hospitalizacion": [
+        "codPrestador","viaIngresoServicioSalud","fechaInicioAtencion","numAutorizacion",
+        "causaMotivoAtencion","codDiagnosticoPrincipal","codDiagnosticoPrincipalE",
+        "codDiagnosticoRelacionadoE1","codDiagnosticoRelacionadoE2","codDiagnosticoRelacionadoE3",
+        "codComplicacion","condicionDestinoUsuarioEgreso","codDiagnosticoCausaMuerte","fechaEgreso",
+        "consecutivo"
+    ],
+    "reciennacidos": [
+        "codPrestador","tipoDocumentoIdentificacion","numDocumentoIdentificacion","fechaNacimiento",
+        "edadGestacional","numConsultasCPrenatal","codSexoBiologico","peso","codDiagnosticoPrincipal",
+        "condicionDestinoUsuarioEgreso","codDiagnosticoCausaMuerte","fechaEgreso","consecutivo"
+    ],
+    "medicamentos": [
+        "codPrestador","numAutorizacion","idMIPRES","fechaDispensAdmon","codDiagnosticoPrincipal",
+        "codDiagnosticoRelacionado","tipoMedicamento","codTecnologiaSalud","nomTecnologiaSalud",
+        "concentracionMedicamento","unidadMedida","formaFarmaceutica","unidadMinDispensa",
+        "cantidadMedicamento","diasTratamiento","tipoDocumentoIdentificacion",
+        "numDocumentoIdentificacion","vrUnitMedicamento","vrServicio","conceptoRecaudo",
+        "valorPagoModerador","numFEVPagoModerador","consecutivo"
+    ],
+    "otrosservicios": [
+        "codPrestador","numAutorizacion","idMIPRES","fechaSuministroTecnologia","tipoOS",
+        "codTecnologiaSalud","nomTecnologiaSalud","cantidadOS","tipoDocumentoIdentificacion",
+        "numDocumentoIdentificacion","vrUnitOS","vrServicio","conceptoRecaudo",
+        "valorPagoModerador","numFEVPagoModerador","consecutivo"
+    ]
+}
 
 def ordenar_campos(tipo, registros):
     orden = ORDEN_SERVICIOS.get(tipo.lower())
@@ -43,11 +91,16 @@ def ordenar_campos(tipo, registros):
         return registros
 
     salida = []
+
     for reg in registros:
         if not isinstance(reg, dict):
             continue
 
-        nuevo = {campo: reg.get(campo) for campo in orden}
+        nuevo = {}
+
+        for campo in orden:
+            nuevo[campo] = reg.get(campo)
+
         for k, v in reg.items():
             if k not in nuevo:
                 nuevo[k] = v
@@ -124,6 +177,8 @@ def json_to_excel(files, tipo_factura):
 
                 if tipo not in datos:
                     datos[tipo] = []
+
+                registros = ordenar_campos(tipo, registros)
 
                 for reg in registros:
                     if isinstance(reg, dict):
