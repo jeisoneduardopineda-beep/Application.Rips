@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-@st.cache_data(show_spinner=False)
-def leer_excel_cached(file):
-    return pd.read_excel(file, sheet_name=None, dtype=str)
+
 import os
 import json
 import zipfile
@@ -12,6 +10,10 @@ import streamlit as st
 from datetime import datetime
 
 st.set_page_config(page_title="Transformador RIPS PGP & EVENTO", layout="centered")
+
+@st.cache_data(show_spinner=False)
+def leer_excel_cached(file):
+    return pd.read_excel(file, sheet_name=None, dtype=str)
 
 # ========================= LOGIN =========================
 
