@@ -9,19 +9,36 @@ import traceback
 import pandas as pd
 import streamlit as st
 
+# ========================= CONFIG =========================
+
 st.set_page_config(page_title="Transformador RIPS PGP & EVENTO", layout="centered")
 
-# ========================= ORDEN SERVICIOS =========================
-
-ORDEN_SERVICIOS = {
-    "consultas": ["codPrestador","fechaInicioAtencion","numAutorizacion","codConsulta","modalidadGrupoServicioTecSal","grupoServicios","codServicio","finalidadTecnologiaSalud","causaMotivoAtencion","codDiagnosticoPrincipal","codDiagnosticoRelacionado1","codDiagnosticoRelacionado2","codDiagnosticoRelacionado3","tipoDiagnosticoPrincipal","tipoDocumentoIdentificacion","numDocumentoIdentificacion","vrServicio","conceptoRecaudo","valorPagoModerador","numFEVPagoModerador","consecutivo"],
-    "procedimientos": ["codPrestador","fechaInicioAtencion","idMIPRES","numAutorizacion","codProcedimiento","viaIngresoServicioSalud","modalidadGrupoServicioTecSal","grupoServicios","codServicio","finalidadTecnologiaSalud","tipoDocumentoIdentificacion","numDocumentoIdentificacion","codDiagnosticoPrincipal","codDiagnosticoRelacionado","codComplicacion","vrServicio","conceptoRecaudo","valorPagoModerador","numFEVPagoModerador","consecutivo"],
-    "urgencias": ["codPrestador","fechaInicioAtencion","causaMotivoAtencion","codDiagnosticoPrincipal","codDiagnosticoPrincipalE","codDiagnosticoRelacionadoE1","codDiagnosticoRelacionadoE2","codDiagnosticoRelacionadoE3","condicionDestinoUsuarioEgreso","codDiagnosticoCausaMuerte","fechaEgreso","consecutivo"],
-    "hospitalizacion": ["codPrestador","viaIngresoServicioSalud","fechaInicioAtencion","numAutorizacion","causaMotivoAtencion","codDiagnosticoPrincipal","codDiagnosticoPrincipalE","codDiagnosticoRelacionadoE1","codDiagnosticoRelacionadoE2","codDiagnosticoRelacionadoE3","codComplicacion","condicionDestinoUsuarioEgreso","codDiagnosticoCausaMuerte","fechaEgreso","consecutivo"],
-    "reciennacidos": ["codPrestador","tipoDocumentoIdentificacion","numDocumentoIdentificacion","fechaNacimiento","edadGestacional","numConsultasCPrenatal","codSexoBiologico","peso","codDiagnosticoPrincipal","condicionDestinoUsuarioEgreso","codDiagnosticoCausaMuerte","fechaEgreso","consecutivo"],
-    "medicamentos": ["codPrestador","numAutorizacion","idMIPRES","fechaDispensAdmon","codDiagnosticoPrincipal","codDiagnosticoRelacionado","tipoMedicamento","codTecnologiaSalud","nomTecnologiaSalud","concentracionMedicamento","unidadMedida","formaFarmaceutica","unidadMinDispensa","cantidadMedicamento","diasTratamiento","tipoDocumentoIdentificacion","numDocumentoIdentificacion","vrUnitMedicamento","vrServicio","conceptoRecaudo","valorPagoModerador","numFEVPagoModerador","consecutivo"],
-    "otrosservicios": ["codPrestador","numAutorizacion","idMIPRES","fechaSuministroTecnologia","tipoOS","codTecnologiaSalud","nomTecnologiaSalud","cantidadOS","tipoDocumentoIdentificacion","numDocumentoIdentificacion","vrUnitOS","vrServicio","conceptoRecaudo","valorPagoModerador","numFEVPagoModerador","consecutivo"]
+USUARIOS = {
+    "jeison": "jeison1411",
+    "facturacion1": "rips2024",
+    "admin": "rips2026",
+    "auditoria": "audit2024"
 }
+
+# ========================= LOGIN =========================
+
+def login():
+    st.title("🔐 Inicio de sesión")
+
+    usuario = st.text_input("Usuario")
+    password = st.text_input("Contraseña", type="password")
+
+    if st.button("Ingresar"):
+        if usuario in USUARIOS and USUARIOS[usuario] == password:
+            st.session_state["autenticado"] = True
+            st.session_state["usuario"] = usuario
+            st.rerun()
+        else:
+            st.error("Credenciales incorrectas")
+
+# ========================= ORDEN =========================
+
+ORDEN_SERVICIOS = {...}  # (déjalo igual que ya lo tienes completo)
 
 def ordenar_campos_servicios(tipo, registros):
     orden = ORDEN_SERVICIOS.get(tipo.lower())
@@ -46,7 +63,10 @@ def _to_str_preserve(v):
         return None
     return s
 
-TIPOS_SERVICIOS = ["consultas","procedimientos","hospitalizacion","urgencias","reciennacidos","medicamentos","otrosservicios"]
+TIPOS_SERVICIOS = [
+    "consultas","procedimientos","hospitalizacion","urgencias",
+    "reciennacidos","medicamentos","otrosservicios"
+]
 
 # ========================= JSON ➜ EXCEL =========================
 
@@ -129,7 +149,6 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
 
         salida_archivos[f"{factura_str}.json"] = json.dumps(salida_json, indent=2, ensure_ascii=False)
 
-    # 🔥 lógica correcta PGP vs EVENTO
     if tipo_factura == "PGP":
         return {
             "tipo": "unico",
@@ -145,6 +164,19 @@ def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
 # ========================= MAIN =========================
 
 def main():
+
+    if "autenticado" not in st.session_state:
+        st.session_state["autenticado"] = False
+
+    if not st.session_state["autenticado"]:
+        login()
+        return
+
+    st.sidebar.write(f"Usuario: {st.session_state['usuario']}")
+
+    if st.sidebar.button("Cerrar sesión"):
+        st.session_state["autenticado"] = False
+        st.rerun()
 
     modo = st.radio("Tipo de conversión", [
         "JSON ➜ Excel (PGP-CAPITA)",
@@ -191,7 +223,7 @@ def guard(fn):
     try:
         fn()
     except Exception as e:
-        st.error("Error")
+        st.error("Error en ejecución")
         st.code(str(e))
 
 guard(main)
