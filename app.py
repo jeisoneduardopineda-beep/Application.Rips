@@ -323,4 +323,4 @@ def guard(fn):
         st.error("Error en ejecución")
         st.code(traceback.format_exc())
 
-guard(main)
+main()
