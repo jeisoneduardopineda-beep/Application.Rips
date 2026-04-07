@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
-
+@st.cache_data(show_spinner=False)
+def leer_excel_cached(file):
+    return pd.read_excel(file, sheet_name=None, dtype=str)
 import os
 import json
 import zipfile
