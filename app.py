@@ -184,104 +184,45 @@ def formatear_fechas(data):
         return [formatear_fechas(i) for i in data]
 
     return data
-# ========================= JSON ➜ EXCEL =========================
+# ================= JSON ➜ EXCEL =================
+if "JSON ➜ Excel" in modo:
 
-def json_to_excel(files, tipo_factura):
+    archivos = st.file_uploader("Sube JSON", type=["json"], accept_multiple_files=True)
 
-    datos = {}
+    if archivos:
 
-    for archivo in files:
-        data = json.load(archivo)
-        num_factura = data.get("numFactura")
+        if st.button("Convertir JSON ➜ Excel"):
 
-        for usuario in data.get("usuarios", []):
-            servicios = usuario.get("servicios", {})
+            tipo = "PGP" if "PGP-CAPITA" in modo else "EVENTO"
+            excel = json_to_excel(archivos, tipo)
 
-            for tipo, registros in servicios.items():
+            st.download_button("Descargar Excel", excel, "rips.xlsx")
 
-                tipo = tipo.lower()
+# ================= EXCEL ➜ JSON =================
+elif "Excel ➜ JSON" in modo:
 
-                if tipo not in datos:
-                    datos[tipo] = []
+    archivo = st.file_uploader("Sube Excel", type=["xlsx"])
 
-                registros = ordenar_campos(tipo, registros)
+    if archivo:
 
-                for reg in registros:
-                    if isinstance(reg, dict):
-                        reg["numFactura"] = num_factura
-                        datos[tipo].append(reg)
+        if st.button("Convertir Excel ➜ JSON"):
 
-    output = BytesIO()
+            tipo = "PGP" if "PGP-CAPITA" in modo else "EVENTO"
+            resultado = excel_to_json(archivo, tipo, nit)
 
-    with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        for tipo, registros in datos.items():
-            df = pd.DataFrame(registros)
-            df.to_excel(writer, sheet_name=tipo[:31], index=False)
+            if resultado:
 
-    output.seek(0)
-    return output
+                if resultado["tipo"] == "unico":
+                    st.download_button("Descargar JSON", resultado["contenido"], resultado["nombre"])
 
-# ========================= EXCEL ➜ JSON =========================
+                else:
+                    buffer = BytesIO()
+                    with zipfile.ZipFile(buffer, "w") as z:
+                        for n, c in resultado["contenido"].items():
+                            z.writestr(n, c)
 
-def excel_to_json(archivo_excel, tipo_factura, nit):
-
-    xlsx = pd.read_excel(archivo_excel, sheet_name=None, dtype=str)
-    dfs = {k.lower(): v.where(pd.notna(v), None) for k, v in xlsx.items()}
-
-    usuarios = dfs.get("usuarios")
-
-    if usuarios is None:
-        st.error("El Excel no tiene hoja 'usuarios'")
-        return None
-
-    salida = {}
-    facturas = usuarios["numFactura"].dropna().unique()
-
-    for factura in facturas:
-
-        usuarios_final = []
-
-        usuarios_f = usuarios[usuarios["numFactura"] == factura]
-
-        for _, u in usuarios_f.iterrows():
-
-            u_dict = u.to_dict()
-            u_dict.pop("numFactura", None)
-
-            servicios = {}
-
-            for tipo, df in dfs.items():
-
-                if tipo == "usuarios":
-                    continue
-
-                reg = df[df["numFactura"] == factura]
-
-                if not reg.empty:
-                    lista = [r.to_dict() for _, r in reg.iterrows()]
-                    lista = ordenar_campos(tipo, lista)
-                    servicios[tipo] = lista
-
-            u_dict["servicios"] = servicios
-            usuarios_final.append(u_dict)
-
-        salida_json = {
-            "numDocumentoIdObligado": nit,
-            "numFactura": factura,
-            "tipoNota": None,
-            "numNota": None,
-            "usuarios": usuarios_final
-        }
-
-        salida_json = forzar_tipos(salida_json)
-        salida_json = formatear_fechas(salida_json)
-
-        salida[f"{factura}.json"] = json.dumps(salida_json, indent=2, ensure_ascii=False)
-
-    if tipo_factura == "PGP":
-        return {"tipo": "unico", "contenido": list(salida.values())[0], "nombre": "rips.json"}
-
-    return {"tipo": "zip", "contenido": salida}
+                    buffer.seek(0)
+                    st.download_button("Descargar ZIP", buffer, "rips.zip")
 
 # ========================= MAIN =========================
 
