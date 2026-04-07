@@ -130,7 +130,7 @@ def forzar_tipos(diccionario):
 
     return diccionario
 
-# ========================= FORMATO FECHAS (CORREGIDO) =========================
+# ========================= FORMATO FECHAS (SOLUCIÓN REAL) =========================
 
 def formatear_fechas(diccionario):
     if isinstance(diccionario, dict):
@@ -157,6 +157,28 @@ def formatear_fechas(diccionario):
                         diccionario[k] = v.strftime("%Y-%m-%d")
                     else:
                         diccionario[k] = v.strftime("%Y-%m-%d-00:00")
+
+                elif isinstance(v, str):
+                    if "fecha" in k.lower():
+
+                        # quitar segundos si existen
+                        if len(v) >= 19:
+                            v = v[:16]
+
+                        if " " in v:
+                            fecha, hora = v.split(" ")
+                        elif "T" in v:
+                            fecha, hora = v.split("T")
+                        else:
+                            fecha, hora = v, None
+
+                        if k == "fechaNacimiento":
+                            diccionario[k] = fecha
+                        else:
+                            if hora:
+                                diccionario[k] = f"{fecha}-{hora[:5]}"
+                            else:
+                                diccionario[k] = fecha
 
     return diccionario
 
