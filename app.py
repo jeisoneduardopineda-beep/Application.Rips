@@ -35,55 +35,7 @@ def login():
 
 # ========================= ORDEN =========================
 
-ORDEN_SERVICIOS = {
-    "consultas": [
-        "codPrestador","fechaInicioAtencion","numAutorizacion","codConsulta",
-        "modalidadGrupoServicioTecSal","grupoServicios","codServicio",
-        "finalidadTecnologiaSalud","causaMotivoAtencion","codDiagnosticoPrincipal",
-        "codDiagnosticoRelacionado1","codDiagnosticoRelacionado2","codDiagnosticoRelacionado3",
-        "tipoDiagnosticoPrincipal","tipoDocumentoIdentificacion","numDocumentoIdentificacion",
-        "vrServicio","conceptoRecaudo","valorPagoModerador","numFEVPagoModerador","consecutivo"
-    ],
-    "procedimientos": [
-        "codPrestador","fechaInicioAtencion","idMIPRES","numAutorizacion","codProcedimiento",
-        "viaIngresoServicioSalud","modalidadGrupoServicioTecSal","grupoServicios","codServicio",
-        "finalidadTecnologiaSalud","tipoDocumentoIdentificacion","numDocumentoIdentificacion",
-        "codDiagnosticoPrincipal","codDiagnosticoRelacionado","codComplicacion","vrServicio",
-        "conceptoRecaudo","valorPagoModerador","numFEVPagoModerador","consecutivo"
-    ],
-    "urgencias": [
-        "codPrestador","fechaInicioAtencion","causaMotivoAtencion","codDiagnosticoPrincipal",
-        "codDiagnosticoPrincipalE","codDiagnosticoRelacionadoE1","codDiagnosticoRelacionadoE2",
-        "codDiagnosticoRelacionadoE3","condicionDestinoUsuarioEgreso","codDiagnosticoCausaMuerte",
-        "fechaEgreso","consecutivo"
-    ],
-    "hospitalizacion": [
-        "codPrestador","viaIngresoServicioSalud","fechaInicioAtencion","numAutorizacion",
-        "causaMotivoAtencion","codDiagnosticoPrincipal","codDiagnosticoPrincipalE",
-        "codDiagnosticoRelacionadoE1","codDiagnosticoRelacionadoE2","codDiagnosticoRelacionadoE3",
-        "codComplicacion","condicionDestinoUsuarioEgreso","codDiagnosticoCausaMuerte","fechaEgreso",
-        "consecutivo"
-    ],
-    "reciennacidos": [
-        "codPrestador","tipoDocumentoIdentificacion","numDocumentoIdentificacion","fechaNacimiento",
-        "edadGestacional","numConsultasCPrenatal","codSexoBiologico","peso","codDiagnosticoPrincipal",
-        "condicionDestinoUsuarioEgreso","codDiagnosticoCausaMuerte","fechaEgreso","consecutivo"
-    ],
-    "medicamentos": [
-        "codPrestador","numAutorizacion","idMIPRES","fechaDispensAdmon","codDiagnosticoPrincipal",
-        "codDiagnosticoRelacionado","tipoMedicamento","codTecnologiaSalud","nomTecnologiaSalud",
-        "concentracionMedicamento","unidadMedida","formaFarmaceutica","unidadMinDispensa",
-        "cantidadMedicamento","diasTratamiento","tipoDocumentoIdentificacion",
-        "numDocumentoIdentificacion","vrUnitMedicamento","vrServicio","conceptoRecaudo",
-        "valorPagoModerador","numFEVPagoModerador","consecutivo"
-    ],
-    "otrosservicios": [
-        "codPrestador","numAutorizacion","idMIPRES","fechaSuministroTecnologia","tipoOS",
-        "codTecnologiaSalud","nomTecnologiaSalud","cantidadOS","tipoDocumentoIdentificacion",
-        "numDocumentoIdentificacion","vrUnitOS","vrServicio","conceptoRecaudo",
-        "valorPagoModerador","numFEVPagoModerador","consecutivo"
-    ]
-}
+ORDEN_SERVICIOS = { ... }  # ← (déjalo EXACTAMENTE como lo tienes, no lo toco)
 
 def ordenar_campos(tipo, registros):
     orden = ORDEN_SERVICIOS.get(tipo.lower())
@@ -137,6 +89,7 @@ def forzar_tipos(data):
     return data
 
 # ========================= FECHAS =========================
+
 def convertir_fecha(k, v):
 
     if v is None:
@@ -156,10 +109,28 @@ def convertir_fecha(k, v):
         if pd.isna(fecha):
             return None
 
-        return fecha.strftime("%Y-%m-%d %H:%M") if "inicio" in k.lower() else fecha.strftime("%Y-%m-%d")
+        if "inicio" in k.lower():
+            return fecha.strftime("%Y-%m-%d %H:%M")
+
+        return fecha.strftime("%Y-%m-%d")
 
     except:
         return None
+
+
+def formatear_fechas(data):
+
+    if isinstance(data, dict):
+        return {
+            k: formatear_fechas(v) if isinstance(v, (dict, list))
+            else convertir_fecha(k, v)
+            for k, v in data.items()
+        }
+
+    elif isinstance(data, list):
+        return [formatear_fechas(i) for i in data]
+
+    return data
 
 # ========================= JSON ➜ EXCEL =========================
 
