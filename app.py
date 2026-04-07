@@ -212,6 +212,12 @@ def main():
         login()
         return
 
+    st.sidebar.write(f"Usuario: {st.session_state['usuario']}")
+
+    if st.sidebar.button("Cerrar sesión"):
+        st.session_state["autenticado"] = False
+        st.rerun()
+
     modo = st.radio("Tipo de conversión", [
         "JSON ➜ Excel (PGP-CAPITA)",
         "Excel ➜ JSON (PGP-CAPITA)",
@@ -221,31 +227,61 @@ def main():
 
     nit = st.text_input("NIT obligado", value="900364721")
 
-    if "Excel ➜ JSON" in modo:
+    # ================= JSON ➜ EXCEL =================
 
-        archivo = st.file_uploader("Sube Excel", type=["xlsx"])
+    if "JSON ➜ Excel" in modo:
+
+        archivos = st.file_uploader(
+            "Sube JSON",
+            type=["json"],
+            accept_multiple_files=True
+        )
+
+        if archivos:
+            tipo = "PGP" if "PGP-CAPITA" in modo else "EVENTO"
+
+            excel = json_to_excel(archivos, tipo)
+
+            st.download_button(
+                "Descargar Excel",
+                excel,
+                "rips.xlsx"
+            )
+
+    # ================= EXCEL ➜ JSON =================
+
+    elif "Excel ➜ JSON" in modo:
+
+        archivo = st.file_uploader(
+            "Sube Excel",
+            type=["xlsx"]
+        )
 
         if archivo:
             tipo = "PGP" if "PGP-CAPITA" in modo else "EVENTO"
+
             resultado = excel_to_json(archivo, tipo, nit)
 
             if resultado["tipo"] == "unico":
-                st.download_button("Descargar JSON", resultado["contenido"], resultado["nombre"])
+
+                st.download_button(
+                    "Descargar JSON",
+                    resultado["contenido"],
+                    resultado["nombre"]
+                )
 
             else:
+
                 buffer = BytesIO()
+
                 with zipfile.ZipFile(buffer, "w") as z:
                     for n, c in resultado["contenido"].items():
                         z.writestr(n, c)
 
                 buffer.seek(0)
-                st.download_button("Descargar ZIP", buffer, "rips.zip")
 
-def guard(fn):
-    try:
-        fn()
-    except Exception as e:
-        st.error("Error")
-        st.code(str(e))
-
-guard(main)
+                st.download_button(
+                    "Descargar ZIP",
+                    buffer,
+                    "rips.zip"
+                )
