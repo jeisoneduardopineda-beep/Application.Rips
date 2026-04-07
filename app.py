@@ -281,69 +281,77 @@ def main():
 
     nit_obligado = st.text_input("NIT obligado", value="900364721")
 
-   if "JSON ➜ Excel" in modo:
+    # ================= JSON ➜ EXCEL =================
 
-    archivos = st.file_uploader(
-        "Sube JSON",
-        type=["json"],
-        accept_multiple_files=True
-    )
+    if "JSON ➜ Excel" in modo:
 
-    if archivos and st.button("Convertir"):
-
-        tipo_factura = "PGP" if "PGP-CAPITA" in modo else "EVENTO"
-
-        excel_data = json_to_excel(archivos, tipo_factura)
-
-        st.download_button(
-            "Descargar Excel",
-            data=excel_data,
-            file_name=f"RIPS_{tipo_factura}.xlsx"
+        archivos = st.file_uploader(
+            "Sube JSON",
+            type=["json"],
+            accept_multiple_files=True
         )
 
-elif "Excel ➜ JSON" in modo:
+        if archivos and st.button("Convertir"):
 
-    archivo_excel = st.file_uploader(
-        "Sube Excel",
-        type=["xlsx"]
-    )
+            tipo_factura = "PGP" if "PGP-CAPITA" in modo else "EVENTO"
 
-    if archivo_excel and st.button("Convertir"):
+            excel_data = json_to_excel(archivos, tipo_factura)
 
-        tipo_factura = "PGP" if "PGP-CAPITA" in modo else "EVENTO"
+            st.download_button(
+                "Descargar Excel",
+                data=excel_data,
+                file_name=f"RIPS_{tipo_factura}.xlsx"
+            )
 
-        resultado = excel_to_json(archivo_excel, tipo_factura, nit_obligado)
+    # ================= EXCEL ➜ JSON =================
 
-        if resultado:
+    elif "Excel ➜ JSON" in modo:
 
-            if resultado["tipo"] == "único":
+        archivo_excel = st.file_uploader(
+            "Sube Excel",
+            type=["xlsx"]
+        )
 
-                st.download_button(
-                    "Descargar JSON",
-                    data=resultado["contenido"].encode("utf-8"),
-                    file_name=resultado["nombre"]
-                )
+        if archivo_excel and st.button("Convertir"):
 
-            else:
+            tipo_factura = "PGP" if "PGP-CAPITA" in modo else "EVENTO"
 
-                buffer = BytesIO()
+            resultado = excel_to_json(archivo_excel, tipo_factura, nit_obligado)
 
-                with zipfile.ZipFile(buffer, "w") as zipf:
-                    for nombre, contenido in resultado["contenido"].items():
-                        zipf.writestr(nombre, contenido)
+            if resultado:
 
-                buffer.seek(0)
+                if resultado["tipo"] == "único":
 
-                st.download_button(
-                    "Descargar ZIP",
-                    data=buffer,
-                    file_name="RIPS_JSON.zip"
-                )
-    def guard(fn):
+                    st.download_button(
+                        "Descargar JSON",
+                        data=resultado["contenido"].encode("utf-8"),
+                        file_name=resultado["nombre"]
+                    )
+
+                else:
+
+                    buffer = BytesIO()
+
+                    with zipfile.ZipFile(buffer, "w") as zipf:
+                        for nombre, contenido in resultado["contenido"].items():
+                            zipf.writestr(nombre, contenido)
+
+                    buffer.seek(0)
+
+                    st.download_button(
+                        "Descargar ZIP",
+                        data=buffer,
+                        file_name="RIPS_JSON.zip"
+                    )
+
+# ========================= GUARD =========================
+
+def guard(fn):
     try:
         fn()
     except Exception as e:
         st.error("Excepción en tiempo de ejecución")
         st.code("".join(traceback.format_exception(e)), language="python")
         st.stop()
+
 guard(main)
