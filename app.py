@@ -159,7 +159,7 @@ def convertir_fecha(k, v):
 
         # 🔴 CAMPOS CON HORA
         if k in ["fechaDispensAdmon", "fechaInicioAtencion", "fechaEgreso"]:
-            return fecha.strftime("%Y-%m-%d-%H-%M")
+            return fecha.strftime("%Y-%m-%d-%H:%M")
 
         # 🟢 SOLO FECHA
         if k == "fechaNacimiento":
