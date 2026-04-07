@@ -143,13 +143,18 @@ def convertir_fecha(k, v):
         return v
 
     try:
-        v = str(v)
-        if " " in v:
-            f, h = v.split(" ")
-            return f"{f}-{h[:5]}"
-        return v
+        dt = pd.to_datetime(v, errors="coerce")
+
+        if pd.isna(dt):
+            return None
+
+        if k in ["fechaNacimiento"]:
+            return dt.strftime("%Y-%m-%d")
+
+        return dt.strftime("%Y-%m-%d-%H:%M")
+
     except:
-        return v
+        return None
 
 def formatear_fechas(data):
     if isinstance(data, dict):
@@ -165,7 +170,7 @@ def json_to_excel(files, tipo_factura):
     datos = {}
 
     for archivo in files:
-        data = json.load(archivo)
+        data = json.loads(archivo.read().decode("utf-8"))
         num_factura = data.get("numFactura")
 
         for usuario in data.get("usuarios", []):
@@ -323,4 +328,4 @@ def guard(fn):
         st.error("Error en ejecución")
         st.code(traceback.format_exc())
 
-guard(main)
+main()
