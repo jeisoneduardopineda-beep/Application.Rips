@@ -147,46 +147,29 @@ def convertir_fecha(k, v):
         return v
 
     try:
-        # 🔹 si viene como datetime real
-        if isinstance(v, (datetime, pd.Timestamp)):
-            if "hora" in k.lower() or "inicio" in k.lower():
-                return v.strftime("%Y-%m-%d %H:%M")
-            return v.strftime("%Y-%m-%d")
-
         v = str(v).strip()
 
         if v.lower() in ["nan", "none", ""]:
             return None
 
-        # 🔹 intentar parsear automáticamente
         fecha = pd.to_datetime(v, errors="coerce")
 
         if pd.isna(fecha):
             return None
 
-        if "hora" in k.lower() or "inicio" in k.lower():
-            return fecha.strftime("%Y-%m-%d %H:%M")
+        # 🔴 CAMPOS CON HORA
+        if k in ["fechaDispensAdmon", "fechaInicioAtencion", "fechaEgreso"]:
+            return fecha.strftime("%Y-%m-%d-%H-%M")
 
+        # 🟢 SOLO FECHA
+        if k == "fechaNacimiento":
+            return fecha.strftime("%Y-%m-%d")
+
+        # 🔵 OTROS CAMPOS DE FECHA (fallback)
         return fecha.strftime("%Y-%m-%d")
 
     except:
         return None
-
-
-def formatear_fechas(data):
-
-    if isinstance(data, dict):
-        return {
-            k: formatear_fechas(v) if isinstance(v, (dict, list))
-            else convertir_fecha(k, v)
-            for k, v in data.items()
-        }
-
-    elif isinstance(data, list):
-        return [formatear_fechas(i) for i in data]
-
-    return data
-
 # ========================= JSON ➜ EXCEL =========================
 
 def json_to_excel(files, tipo_factura):
