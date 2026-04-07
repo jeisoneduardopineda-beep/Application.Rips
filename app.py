@@ -11,10 +11,6 @@ from datetime import datetime
 
 st.set_page_config(page_title="Transformador RIPS PGP & EVENTO", layout="centered")
 
-@st.cache_data(show_spinner=False)
-def leer_excel_cached(file):
-    return pd.read_excel(file, sheet_name=None, dtype=str)
-
 # ========================= LOGIN =========================
 
 USUARIOS = {
@@ -143,37 +139,17 @@ def forzar_tipos(data):
 # ========================= FECHAS =========================
 
 def convertir_fecha(k, v):
-
-    if v is None:
-        return None
-
-    if "fecha" not in k.lower():
+    if not v or "fecha" not in k.lower():
         return v
 
     try:
-        v = str(v).strip()
-
-        if v.lower() in ["nan", "none", ""]:
-            return None
-
-        fecha = pd.to_datetime(v, errors="coerce")
-
-        if pd.isna(fecha):
-            return None
-
-        # 🔴 CAMPOS CON HORA
-        if k in ["fechaDispensAdmon", "fechaInicioAtencion", "fechaEgreso"]:
-            return fecha.strftime("%Y-%m-%d-%H-%M")
-
-        # 🟢 SOLO FECHA
-        if k == "fechaNacimiento":
-            return fecha.strftime("%Y-%m-%d")
-
-        # 🔵 OTROS CAMPOS DE FECHA (fallback)
-        return fecha.strftime("%Y-%m-%d")
-
+        v = str(v)
+        if " " in v:
+            f, h = v.split(" ")
+            return f"{f}-{h[:5]}"
+        return v
     except:
-        return None
+        return v
 
 def formatear_fechas(data):
     if isinstance(data, dict):
@@ -223,11 +199,7 @@ def json_to_excel(files, tipo_factura):
 
 def excel_to_json(archivo_excel, tipo_factura, nit):
 
-    try:
     xlsx = pd.read_excel(archivo_excel, sheet_name=None, dtype=str)
-except Exception as e:
-    st.error(f"Error leyendo Excel: {e}")
-    return None
     dfs = {k.lower(): v.where(pd.notna(v), None) for k, v in xlsx.items()}
 
     usuarios = dfs.get("usuarios")
