@@ -294,5 +294,11 @@ def main():
                 data=excel_data,
                 file_name="RIPS.xlsx"
             )
-
+def guard(fn):
+    try:
+        fn()
+    except Exception as e:
+        st.error("Excepción en tiempo de ejecución")
+        st.code("".join(traceback.format_exception(e)), language="python")
+        st.stop()
 guard(main)
