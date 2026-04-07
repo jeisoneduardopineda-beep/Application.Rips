@@ -7,7 +7,7 @@ from io import BytesIO
 import traceback
 import pandas as pd
 import streamlit as st
-from datetime import datetime, date
+from datetime import datetime
 
 st.set_page_config(page_title="Transformador RIPS PGP & EVENTO", layout="centered")
 
@@ -35,15 +35,7 @@ def login():
 
 # ========================= ORDEN =========================
 
-ORDEN_SERVICIOS = {
-    "consultas": [...],  # 👈 deja tu orden exacto aquí (el que ya tienes)
-    "procedimientos": [...],
-    "urgencias": [...],
-    "hospitalizacion": [...],
-    "reciennacidos": [...],
-    "medicamentos": [...],
-    "otrosservicios": [...]
-}
+ORDEN_SERVICIOS = {}  # 👈 deja tu diccionario real aquí
 
 def ordenar_campos(tipo, registros):
     orden = ORDEN_SERVICIOS.get(tipo.lower())
@@ -52,10 +44,14 @@ def ordenar_campos(tipo, registros):
 
     salida = []
     for reg in registros:
+        if not isinstance(reg, dict):
+            continue
+
         nuevo = {campo: reg.get(campo) for campo in orden}
         for k, v in reg.items():
             if k not in nuevo:
                 nuevo[k] = v
+
         salida.append(nuevo)
 
     return salida
@@ -67,13 +63,6 @@ CAMPOS_NUMERICOS = {
     "cantidadMedicamento","diasTratamiento","vrUnitMedicamento",
     "cantidadOS","vrUnitOS"
 }
-
-def forzar_tipos(data):
-    if isinstance(data, dict):
-        return {k: forzar_tipos(v) if isinstance(v, (dict, list)) else convertir(k, v) for k, v in data.items()}
-    elif isinstance(data, list):
-        return [forzar_tipos(i) for i in data]
-    return data
 
 def convertir(k, v):
     if v is None or str(v).lower() in ["nan", "none", ""]:
@@ -87,14 +76,14 @@ def convertir(k, v):
 
     return str(v)
 
-# ========================= FECHAS =========================
-
-def formatear_fechas(data):
+def forzar_tipos(data):
     if isinstance(data, dict):
-        return {k: formatear_fechas(v) if isinstance(v, (dict, list)) else convertir_fecha(k, v) for k, v in data.items()}
+        return {k: forzar_tipos(v) if isinstance(v, (dict, list)) else convertir(k, v) for k, v in data.items()}
     elif isinstance(data, list):
-        return [formatear_fechas(i) for i in data]
+        return [forzar_tipos(i) for i in data]
     return data
+
+# ========================= FECHAS =========================
 
 def convertir_fecha(k, v):
     if not v or "fecha" not in k.lower():
@@ -103,11 +92,18 @@ def convertir_fecha(k, v):
     try:
         v = str(v)
         if " " in v:
-            fecha, hora = v.split(" ")
-            return f"{fecha}-{hora[:5]}"
+            f, h = v.split(" ")
+            return f"{f}-{h[:5]}"
         return v
     except:
         return v
+
+def formatear_fechas(data):
+    if isinstance(data, dict):
+        return {k: formatear_fechas(v) if isinstance(v, (dict, list)) else convertir_fecha(k, v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [formatear_fechas(i) for i in data]
+    return data
 
 # ========================= JSON ➜ EXCEL =========================
 
@@ -123,14 +119,16 @@ def json_to_excel(files, tipo_factura):
             servicios = usuario.get("servicios", {})
 
             for tipo, registros in servicios.items():
+
                 tipo = tipo.lower()
 
                 if tipo not in datos:
                     datos[tipo] = []
 
                 for reg in registros:
-                    reg["numFactura"] = num_factura
-                    datos[tipo].append(reg)
+                    if isinstance(reg, dict):
+                        reg["numFactura"] = num_factura
+                        datos[tipo].append(reg)
 
     output = BytesIO()
 
@@ -150,9 +148,13 @@ def excel_to_json(archivo_excel, tipo_factura, nit):
     dfs = {k.lower(): v.where(pd.notna(v), None) for k, v in xlsx.items()}
 
     usuarios = dfs.get("usuarios")
-    facturas = usuarios["numFactura"].dropna().unique()
+
+    if usuarios is None:
+        st.error("El Excel no tiene hoja 'usuarios'")
+        return None
 
     salida = {}
+    facturas = usuarios["numFactura"].dropna().unique()
 
     for factura in facturas:
 
@@ -175,7 +177,6 @@ def excel_to_json(archivo_excel, tipo_factura, nit):
                 reg = df[df["numFactura"] == factura]
 
                 if not reg.empty:
-
                     lista = [r.to_dict() for _, r in reg.iterrows()]
                     lista = ordenar_campos(tipo, lista)
                     servicios[tipo] = lista
@@ -227,61 +228,44 @@ def main():
 
     nit = st.text_input("NIT obligado", value="900364721")
 
-    # ================= JSON ➜ EXCEL =================
-
     if "JSON ➜ Excel" in modo:
 
-        archivos = st.file_uploader(
-            "Sube JSON",
-            type=["json"],
-            accept_multiple_files=True
-        )
+        archivos = st.file_uploader("Sube JSON", type=["json"], accept_multiple_files=True)
 
         if archivos:
             tipo = "PGP" if "PGP-CAPITA" in modo else "EVENTO"
-
             excel = json_to_excel(archivos, tipo)
-
-            st.download_button(
-                "Descargar Excel",
-                excel,
-                "rips.xlsx"
-            )
-
-    # ================= EXCEL ➜ JSON =================
+            st.download_button("Descargar Excel", excel, "rips.xlsx")
 
     elif "Excel ➜ JSON" in modo:
 
-        archivo = st.file_uploader(
-            "Sube Excel",
-            type=["xlsx"]
-        )
+        archivo = st.file_uploader("Sube Excel", type=["xlsx"])
 
         if archivo:
             tipo = "PGP" if "PGP-CAPITA" in modo else "EVENTO"
-
             resultado = excel_to_json(archivo, tipo, nit)
 
-            if resultado["tipo"] == "unico":
+            if resultado:
 
-                st.download_button(
-                    "Descargar JSON",
-                    resultado["contenido"],
-                    resultado["nombre"]
-                )
+                if resultado["tipo"] == "unico":
+                    st.download_button("Descargar JSON", resultado["contenido"], resultado["nombre"])
 
-            else:
+                else:
+                    buffer = BytesIO()
+                    with zipfile.ZipFile(buffer, "w") as z:
+                        for n, c in resultado["contenido"].items():
+                            z.writestr(n, c)
 
-                buffer = BytesIO()
+                    buffer.seek(0)
+                    st.download_button("Descargar ZIP", buffer, "rips.zip")
 
-                with zipfile.ZipFile(buffer, "w") as z:
-                    for n, c in resultado["contenido"].items():
-                        z.writestr(n, c)
+# ========================= RUN =========================
 
-                buffer.seek(0)
+def guard(fn):
+    try:
+        fn()
+    except Exception as e:
+        st.error("Error en ejecución")
+        st.code(traceback.format_exc())
 
-                st.download_button(
-                    "Descargar ZIP",
-                    buffer,
-                    "rips.zip"
-                )
+guard(main)
