@@ -35,7 +35,55 @@ def login():
 
 # ========================= ORDEN =========================
 
-ORDEN_SERVICIOS = { ... }  # ← (déjalo EXACTAMENTE como lo tienes, no lo toco)
+ORDEN_SERVICIOS = {
+    "consultas": [
+        "codPrestador","fechaInicioAtencion","numAutorizacion","codConsulta",
+        "modalidadGrupoServicioTecSal","grupoServicios","codServicio",
+        "finalidadTecnologiaSalud","causaMotivoAtencion","codDiagnosticoPrincipal",
+        "codDiagnosticoRelacionado1","codDiagnosticoRelacionado2","codDiagnosticoRelacionado3",
+        "tipoDiagnosticoPrincipal","tipoDocumentoIdentificacion","numDocumentoIdentificacion",
+        "vrServicio","conceptoRecaudo","valorPagoModerador","numFEVPagoModerador","consecutivo"
+    ],
+    "procedimientos": [
+        "codPrestador","fechaInicioAtencion","idMIPRES","numAutorizacion","codProcedimiento",
+        "viaIngresoServicioSalud","modalidadGrupoServicioTecSal","grupoServicios","codServicio",
+        "finalidadTecnologiaSalud","tipoDocumentoIdentificacion","numDocumentoIdentificacion",
+        "codDiagnosticoPrincipal","codDiagnosticoRelacionado","codComplicacion","vrServicio",
+        "conceptoRecaudo","valorPagoModerador","numFEVPagoModerador","consecutivo"
+    ],
+    "urgencias": [
+        "codPrestador","fechaInicioAtencion","causaMotivoAtencion","codDiagnosticoPrincipal",
+        "codDiagnosticoPrincipalE","codDiagnosticoRelacionadoE1","codDiagnosticoRelacionadoE2",
+        "codDiagnosticoRelacionadoE3","condicionDestinoUsuarioEgreso","codDiagnosticoCausaMuerte",
+        "fechaEgreso","consecutivo"
+    ],
+    "hospitalizacion": [
+        "codPrestador","viaIngresoServicioSalud","fechaInicioAtencion","numAutorizacion",
+        "causaMotivoAtencion","codDiagnosticoPrincipal","codDiagnosticoPrincipalE",
+        "codDiagnosticoRelacionadoE1","codDiagnosticoRelacionadoE2","codDiagnosticoRelacionadoE3",
+        "codComplicacion","condicionDestinoUsuarioEgreso","codDiagnosticoCausaMuerte","fechaEgreso",
+        "consecutivo"
+    ],
+    "reciennacidos": [
+        "codPrestador","tipoDocumentoIdentificacion","numDocumentoIdentificacion","fechaNacimiento",
+        "edadGestacional","numConsultasCPrenatal","codSexoBiologico","peso","codDiagnosticoPrincipal",
+        "condicionDestinoUsuarioEgreso","codDiagnosticoCausaMuerte","fechaEgreso","consecutivo"
+    ],
+    "medicamentos": [
+        "codPrestador","numAutorizacion","idMIPRES","fechaDispensAdmon","codDiagnosticoPrincipal",
+        "codDiagnosticoRelacionado","tipoMedicamento","codTecnologiaSalud","nomTecnologiaSalud",
+        "concentracionMedicamento","unidadMedida","formaFarmaceutica","unidadMinDispensa",
+        "cantidadMedicamento","diasTratamiento","tipoDocumentoIdentificacion",
+        "numDocumentoIdentificacion","vrUnitMedicamento","vrServicio","conceptoRecaudo",
+        "valorPagoModerador","numFEVPagoModerador","consecutivo"
+    ],
+    "otrosservicios": [
+        "codPrestador","numAutorizacion","idMIPRES","fechaSuministroTecnologia","tipoOS",
+        "codTecnologiaSalud","nomTecnologiaSalud","cantidadOS","tipoDocumentoIdentificacion",
+        "numDocumentoIdentificacion","vrUnitOS","vrServicio","conceptoRecaudo",
+        "valorPagoModerador","numFEVPagoModerador","consecutivo"
+    ]
+}
 
 def ordenar_campos(tipo, registros):
     orden = ORDEN_SERVICIOS.get(tipo.lower())
@@ -99,17 +147,24 @@ def convertir_fecha(k, v):
         return v
 
     try:
+        # 🔹 si viene como datetime real
+        if isinstance(v, (datetime, pd.Timestamp)):
+            if "hora" in k.lower() or "inicio" in k.lower():
+                return v.strftime("%Y-%m-%d %H:%M")
+            return v.strftime("%Y-%m-%d")
+
         v = str(v).strip()
 
         if v.lower() in ["nan", "none", ""]:
             return None
 
+        # 🔹 intentar parsear automáticamente
         fecha = pd.to_datetime(v, errors="coerce")
 
         if pd.isna(fecha):
             return None
 
-        if "inicio" in k.lower():
+        if "hora" in k.lower() or "inicio" in k.lower():
             return fecha.strftime("%Y-%m-%d %H:%M")
 
         return fecha.strftime("%Y-%m-%d")
