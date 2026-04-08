@@ -132,33 +132,40 @@ def forzar_tipos(diccionario):
 
 # ========================= 🔥 FORMATO FECHAS =========================
 
-def convertir(k, v):
-    if v is None:
-        return None
+def formatear_fechas(data):
 
-    try:
-        # 👉 Si ya es datetime, no lo reproceses
-        if isinstance(v, (pd.Timestamp, datetime)):
-            dt = v
-        else:
-            # 👉 Convierte solo si es necesario
-            dt = pd.to_datetime(v, errors="coerce")
+    def convertir(k, v):
+        if v is None:
+            return None
 
-        if pd.isna(dt):
+        try:
+            if isinstance(v, (pd.Timestamp, datetime)):
+                dt = v
+            else:
+                dt = pd.to_datetime(v, errors="coerce")
+
+            if pd.isna(dt):
+                return v
+
+            if k == "fechaNacimiento":
+                return dt.strftime("%Y-%m-%d")
+
+            if k in ["fechaInicioAtencion","fechaDispensAdmon","fechaEgreso","fechaSuministroTecnologia"]:
+                return dt.strftime("%Y-%m-%d %H:%M")
+
             return v
 
-        # 👉 SOLO fecha (sin hora)
-        if k == "fechaNacimiento":
-            return dt.strftime("%Y-%m-%d")
+        except:
+            return v
 
-        # 👉 Fecha con hora (mantiene la hora real)
-        if k in ["fechaInicioAtencion","fechaDispensAdmon","fechaEgreso","fechaSuministroTecnologia"]:
-            return dt.strftime("%Y-%m-%d %H:%M")
+    def recorrer(obj):
+        if isinstance(obj, dict):
+            return {k: recorrer(convertir(k, v)) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [recorrer(i) for i in obj]
+        return obj
 
-        return v
-
-    except:
-        return v
+    return recorrer(data)
 
 TIPOS_SERVICIOS = [
     "consultas","procedimientos","hospitalizacion","hospitalizaciones",
