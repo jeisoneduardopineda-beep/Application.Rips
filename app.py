@@ -180,7 +180,13 @@ MAPA_SERVICIOS_JSON = {
 # (SIN CAMBIOS)
 
 # ========================= EXCEL ➜ JSON =========================
-
+def _to_str_preserve(v):
+    if v is None:
+        return None
+    s = str(v)
+    if s.lower() in {"nan", "none", ""}:
+        return None
+    return s
 def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
 
     xlsx = pd.read_excel(archivo_excel, sheet_name=None, dtype=str)
