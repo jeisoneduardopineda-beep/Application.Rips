@@ -202,6 +202,24 @@ def json_friendly(o):
         return o.strftime("%Y-%m-%d")
     return o
 
+TIPOS_SERVICIOS = [
+    "consultas","procedimientos","hospitalizacion","hospitalizaciones",
+    "urgencias","reciennacidos","medicamentos","otrosServicios"
+]
+
+MAPA_SERVICIOS_JSON = {
+    "consultas": "consultas",
+    "procedimientos": "procedimientos",
+    "hospitalizacion": "hospitalizacion",
+    "hospitalizaciones": "hospitalizaciones",
+    "urgencias": "urgencias",
+    "reciennacidos": "reciennacidos",
+    "medicamentos": "medicamentos",
+    "otrosservicios": "otrosServicios"
+}
+
+
+
 def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
 
     xlsx = pd.read_excel(archivo_excel, sheet_name=None, dtype=str)
