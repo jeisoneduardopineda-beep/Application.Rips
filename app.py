@@ -132,67 +132,33 @@ def forzar_tipos(diccionario):
 
 # ========================= 🔥 FORMATO FECHAS =========================
 
-def formatear_fechas(data):
-
-    def convertir(k, v):
-        if v is None:
-            return None
-
-        try:
-            dt = pd.to_datetime(v, errors="coerce")
-
-            if pd.isna(dt):
-                return v
-
-            if k == "fechaNacimiento":
-                return dt.strftime("%Y-%m-%d")
-
-            if k in ["fechaInicioAtencion","fechaDispensAdmon","fechaEgreso","fechaSuministroTecnologia"]:
-                return dt.strftime("%Y-%m-%d %H:%M")
-
-            return v
-
-        except:
-            return v
-
-    def recorrer(obj):
-        if isinstance(obj, dict):
-            return {k: recorrer(convertir(k, v)) for k, v in obj.items()}
-        elif isinstance(obj, list):
-            return [recorrer(i) for i in obj]
-        return obj
-
-    return recorrer(data)
-
-# ========================= UTILIDADES =========================
-
-def json_friendly(o):
-    if isinstance(o, (np.integer,)):
-        return int(o)
-    if isinstance(o, (np.floating,)):
-        return float(o)
-    if isinstance(o, (np.bool_,)):
-        return bool(o)
-    if o is pd.NaT:
-        return None
-    try:
-        if pd.isna(o):
-            return None
-    except:
-        pass
-    if isinstance(o, (pd.Timestamp, datetime)):
-        return o.strftime("%Y-%m-%d %H:%M")
-    if isinstance(o, date):
-        return o.strftime("%Y-%m-%d")
-    return o
-
-def _to_str_preserve(v):
+def convertir(k, v):
     if v is None:
         return None
-    s = str(v)
-    if s.lower() in {"nan", "none", ""}:
-        return None
-    return s
+
+    try:
+        # 👉 Si ya es datetime, no lo reproceses
+        if isinstance(v, (pd.Timestamp, datetime)):
+            dt = v
+        else:
+            # 👉 Convierte solo si es necesario
+            dt = pd.to_datetime(v, errors="coerce")
+
+        if pd.isna(dt):
+            return v
+
+        # 👉 SOLO fecha (sin hora)
+        if k == "fechaNacimiento":
+            return dt.strftime("%Y-%m-%d")
+
+        # 👉 Fecha con hora (mantiene la hora real)
+        if k in ["fechaInicioAtencion","fechaDispensAdmon","fechaEgreso","fechaSuministroTecnologia"]:
+            return dt.strftime("%Y-%m-%d %H:%M")
+
+        return v
+
+    except:
+        return v
 
 TIPOS_SERVICIOS = [
     "consultas","procedimientos","hospitalizacion","hospitalizaciones",
