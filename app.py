@@ -187,13 +187,25 @@ MAPA_SERVICIOS_JSON = {
 # (SIN CAMBIOS)
 
 # ========================= EXCEL ➜ JSON =========================
-def _to_str_preserve(v):
-    if v is None:
+def json_friendly(o):
+    if isinstance(o, (np.integer,)):
+        return int(o)
+    if isinstance(o, (np.floating,)):
+        return float(o)
+    if isinstance(o, (np.bool_,)):
+        return bool(o)
+    if o is pd.NaT:
         return None
-    s = str(v)
-    if s.lower() in {"nan", "none", ""}:
-        return None
-    return s
+    try:
+        if pd.isna(o):
+            return None
+    except:
+        pass
+    if isinstance(o, (pd.Timestamp, datetime)):
+        return o.strftime("%Y-%m-%d %H:%M")
+    if isinstance(o, date):
+        return o.strftime("%Y-%m-%d")
+    return o
 def excel_to_json(archivo_excel, tipo_factura, nit_obligado):
 
     xlsx = pd.read_excel(archivo_excel, sheet_name=None, dtype=str)
