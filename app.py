@@ -178,7 +178,55 @@ def _to_str_preserve(v):
     return s
 
 # ========================= JSON ➜ EXCEL =========================
-# (SIN CAMBIOS)
+def json_to_excel(archivos, tipo_factura):
+
+    usuarios_rows = []
+    servicios_data = {}
+
+    for archivo in archivos:
+
+        contenido = json.load(archivo)
+
+        numFactura = contenido.get("numFactura")
+
+        for usuario in contenido.get("usuarios", []):
+
+            usuario_base = usuario.copy()
+            servicios = usuario_base.pop("servicios", {})
+
+            usuario_base["numFactura"] = numFactura
+            usuarios_rows.append(usuario_base)
+
+            for tipo_servicio, lista_servicios in servicios.items():
+
+                if tipo_servicio not in servicios_data:
+                    servicios_data[tipo_servicio] = []
+
+                for item in lista_servicios:
+                    fila = item.copy()
+                    fila["numFactura"] = numFactura
+                    fila["documento_usuario"] = usuario_base.get("numDocumentoIdentificacion")
+                    servicios_data[tipo_servicio].append(fila)
+
+    # Crear Excel en memoria
+    output = BytesIO()
+
+    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+
+        # Hoja usuarios
+        if usuarios_rows:
+            df_usuarios = pd.DataFrame(usuarios_rows)
+            df_usuarios.to_excel(writer, sheet_name="usuarios", index=False)
+
+        # Hojas de servicios
+        for tipo, registros in servicios_data.items():
+            df = pd.DataFrame(registros)
+            df.to_excel(writer, sheet_name=tipo[:31], index=False)
+
+    output.seek(0)
+    return output
+
+
 
 # ========================= EXCEL ➜ JSON =========================
 
